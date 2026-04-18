@@ -1,34 +1,34 @@
-import mongoose from "mongoose";
+import { Schema , model } from "mongoose";
+import bcryptjs from "bcryptjs"
+import { IUser } from "../interfaces/user.interface";
 
-const userSchema = new mongoose.Schema({
+const userSchema = new Schema<IUser>({
     name:{
         type:String,
         required:true
     },
     password:{
         type:String,
-        required:function () {
-            return this.provider === "local";
-        }
+        required:true
     },
     email:{
         type:String,
-        required:true
-    },
-    provider: {
-        type:String,
-        enum:["local","google"]
-    },
-    googleId:{
-        type:String
+        // required:true // will not make it mandetory as of now , bt surely will need to   
     },
     phoneNumber:{
-        type:Number
-        // not explicitly required as of now , bt will be needing to 
+        type:Number,
+        required:true
+    },
+    refreshToken:{
+        type:String
     }
 },{
     timestamps:true
 });
 
+userSchema.pre("save",async function () {
+    if(!this.isModified("password")) return;
+    this.password = await bcryptjs.hash(this.password,10)
+})
 
-export const User = mongoose.model("User",userSchema);
+export const User = model<IUser>("User",userSchema);

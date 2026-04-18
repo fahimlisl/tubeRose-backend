@@ -20,7 +20,9 @@ app.use(cookieParser());
 
 // routes 
 import adminRouter from "./routes/admin.route.ts"
+import publicRouter from "./routes/public.route.ts"
 app.use("/api/v1/admin",adminRouter)
+app.use("/api/v1/public",publicRouter)
 
 
 
