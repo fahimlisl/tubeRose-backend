@@ -5,13 +5,20 @@ import { User } from "../models/user.model.ts";
 import { ApiError } from "../utils/ApiError.ts";
 import { ApiResponse } from "../utils/ApiResponse.ts";
 import { asyncHandler } from "../utils/AsyncHandler.ts";
-import { generateToken } from "../utils/auth.util.ts";
+import { comparePassword, generateToken } from "../utils/auth.util.ts";
+import { option } from "../utils/option.ts";
 
 const sendOtpSecret = process.env.SEND_OTP_TOKEN_SECRET as string;
 const sendOtpExpiry = process.env.SEND_OTP_TOKEN_EXPIRY as string;
 
 const phoneNumberSecret = process.env.PHONE_NUMBER_STATE_SECRET as string;
 const phoneNumberExpiry = process.env.PHONE_NUMBER_STATE_EXPIRY as string;
+
+
+const accessSecret = process.env.ACCESS_TOKEN_SECRET as string;
+const accessExpriy = process.env.ACCESS_TOKEN_EXPIRY as string
+const refreshSecret = process.env.REFRESH_TOKEN_SECRET as string;
+const refreshExpriy = process.env.REFRESH_TOKEN_EXPIRY as string
 
 // signup logic starts
 const checkPhoneNumber = asyncHandler(async (req: Request, res: Response) => {
@@ -165,6 +172,7 @@ const verifyOTP = asyncHandler(async (req: Request, res: Response) => {
 
 const registerUser = asyncHandler(async (req: Request, res: Response) => {
   const { name, email, password } = req.body; // will be part of frontend how i receive the phone number from previous step! also need to check wheather its safe or not!
+  if(!password || !(password.length < 8 )) throw new ApiError(400,"password of minimum length 8 required.");
   const phoneNumberToken = req.cookies?.phoneNumberToken;
   let decoded: PhoneNumberTokenPayload;
   try {
@@ -176,9 +184,7 @@ const registerUser = asyncHandler(async (req: Request, res: Response) => {
     res.clearCookie("phoneNumberToken");
     throw new ApiError(400, "Session expired. Please start again.");
   }
-  console.log(decoded)
   const phoneNumber = Number(decoded.phoneNumber);
-  console.log(phoneNumber)
 
   const user = await User.findOne({ email });
   if (user) throw new ApiError(400, "email already registered!");
@@ -198,4 +204,82 @@ const registerUser = asyncHandler(async (req: Request, res: Response) => {
     .json(new ApiResponse(200, u, "user registered successfully!"));
 });
 
-export { registerUser, checkPhoneNumber, sendOTP, verifyOTP };
+const loginUser = asyncHandler(async(req,res) => {
+    const { email , phoneNumber , password } = req.body;
+    if(!(email || phoneNumber)) throw new ApiError(400,"email or phone number required.");
+    if(!password) throw new ApiError(400,"password required.");
+    const user = await User.findOne({
+        $or:[
+            {email},{phoneNumber}
+        ]
+    });
+    if(!user) throw new ApiError(400,"user has not registered yet. Kindly register before proceed.");
+    const checkPassword = await comparePassword(password,user.password);
+    if(!checkPassword) throw new ApiError(400,"incorrect password!");
+
+    const accessToken = generateToken({_id:user._id,role:"user"},accessSecret,accessExpriy);
+    const refreshToken = generateToken({_id:user._id,role:"user"},refreshSecret,refreshExpriy);
+    if(!accessToken) throw new ApiError(400,"failed to generate access token");
+    if(!refreshToken) throw new ApiError(400,"failed to generate refresh token");
+
+    user.refreshToken = refreshToken;
+    await user.save({validateBeforeSave:false});
+
+    return res
+    .status(200)
+    .cookie("accessToken",accessToken,option)
+    .cookie("refreshToken",refreshToken,option)
+    .json(
+        new ApiResponse(
+            200,
+            {accessToken,refreshToken},
+            "successfully logged in"
+        )
+    ) 
+});
+
+const refreshAccessToken = asyncHandler(async(req:Request,res:Response) => {
+  const incomingRefreshToken = req.cookies?.refreshToken;
+  if(!incomingRefreshToken) throw new ApiError(401,"unauthorized request.");
+
+  const decoded = jwt.verify(incomingRefreshToken,refreshSecret) as JwtPayload;
+  const user = await User.findById(decoded._id);
+  if(!user) throw new ApiError(401,"invalid refresh token.");
+  if(user.refreshToken !== incomingRefreshToken) throw new ApiError(401,"refresh Token is expired or used.");
+
+  const newAccessToken = generateToken({_id:user._id,role:"user"},accessSecret,accessExpriy);
+  if(!newAccessToken) throw new ApiError(400,"failed to generate new access token.");
+  return res
+  .status(200)
+  .cookie("accessToken",newAccessToken,option)
+  .json(
+    new ApiResponse(
+      200,
+      newAccessToken,
+      "access token has been refreshed."
+    )
+  )
+});
+
+const logoutUser = asyncHandler(async(req:Request,res:Response) => {
+  const userId = req.user._id;
+  if(!userId) throw new ApiError(401,"unauthorized access!");
+  const user = await User.findById(userId);
+  if(!user) throw new ApiError(400,"user isn't registered , or deleted.");
+  user.refreshToken = "";
+  await user.save({validateBeforeSave:false})
+  return res
+  .status(200)
+  .clearCookie("refreshToken",option)
+  .clearCookie("accessToken",option)
+  .json(
+    new ApiResponse(
+      200,
+      {},
+      "user logged out successfully"
+    )
+  )
+})
+
+
+export { checkPhoneNumber , sendOTP , verifyOTP , registerUser, loginUser , refreshAccessToken , logoutUser}

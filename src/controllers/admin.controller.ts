@@ -2,19 +2,16 @@ import { asyncHandler } from "../utils/AsyncHandler.ts";
 import { ApiResponse } from "../utils/ApiResponse.ts";
 import { ApiError } from "../utils/ApiError.ts";
 import { Request,Response } from "express";
-import { Admin } from "../models/admin.model";
+import { Admin } from "../models/admin.model.ts";
 import { comparePassword, generateToken } from "../utils/auth.util.ts";
+import { option } from "../utils/option.ts";
+import jwt from "jsonwebtoken"
 
 
 const accessSecret = process.env.ACCESS_TOKEN_SECRET as string;
 const accessExpriy = process.env.ACCESS_TOKEN_EXPIRY as string
 const refreshSecret = process.env.REFRESH_TOKEN_SECRET as string;
 const refreshExpriy = process.env.REFRESH_TOKEN_EXPIRY as string
-
-const option: object = {
-    httpOnly:true,
-    secure:true
-}
 
 const registerAdmin = asyncHandler(async(req:Request,res:Response) => {
     const { name , email , phoneNumber , password } = req.body;
@@ -112,5 +109,33 @@ const adminLogout = asyncHandler(async(req:Request,res:Response) => {
     );
 });
 
+const refreshAccessTokenAdmin = asyncHandler(async (req: Request, res: Response) => {
+    const incomingRefreshToken = req.cookies?.refreshToken;
 
-export { registerAdmin ,adminLogin , adminLogout }
+    if (!incomingRefreshToken) {
+        throw new ApiError(401, "Unauthorized request");
+    }
+    const decoded = jwt.verify(incomingRefreshToken, refreshSecret) as any;
+
+    const admin = await Admin.findById(decoded?._id);
+
+    if (!admin) {
+        throw new ApiError(401, "Invalid refresh token");
+    }
+    if (admin.refreshToken !== incomingRefreshToken) {
+        throw new ApiError(401, "Refresh token is expired or used");
+    }
+    const newAccessToken = generateToken(
+        { _id: admin._id, role: "admin" },
+        accessSecret,
+        accessExpriy
+    );
+
+    return res
+        .status(200)
+        .cookie("accessToken", newAccessToken, option)
+        .json(new ApiResponse(200, { accessToken: newAccessToken }, "Access token refreshed"));
+});
+
+
+export { registerAdmin ,adminLogin , adminLogout ,refreshAccessTokenAdmin}

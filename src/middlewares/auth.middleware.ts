@@ -1,11 +1,12 @@
 import { NextFunction, Request, Response } from "express";
 import Jwt  from "jsonwebtoken";
-import { ApiError } from "../utils/ApiError";
-import { Admin } from "../models/admin.model";
+import { ApiError } from "../utils/ApiError.ts";
+import { Admin } from "../models/admin.model.ts";
+import { User } from "../models/user.model.ts";
 
-const roleModel:Record<string,string> = {
-    "admin":"Admin",
-    "user":"User"
+const roleModel = {
+    admin:Admin,
+    user:User
 }
 
 export const verifyJWT = async (req: Request, res: Response, next: NextFunction) => {
@@ -29,7 +30,7 @@ export const verifyJWT = async (req: Request, res: Response, next: NextFunction)
     const decode = Jwt.verify(token,process.env.ACCESS_TOKEN_SECRET as string) as JwtPayload;
     if(!decode) throw new ApiError(400,"Unauthorized access - token didn't matched!")
     const Model = roleModel[decode.role];
-    const user = await Admin.findById(decode._id);
+    const user = await Model.findById(decode._id);
     if(!user) throw new ApiError(400,"user wasn't able to found!");
     req.user = user;
     req.role = decode.role;
