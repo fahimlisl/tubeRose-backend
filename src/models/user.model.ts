@@ -1,6 +1,25 @@
 import { Schema , model } from "mongoose";
 import bcryptjs from "bcryptjs"
-import { IUser } from "../interfaces/user.interface";
+import { IUser, IWallet } from "../interfaces/user.interface";
+
+
+const walletSchema = new Schema<IWallet>({
+    source_id:{
+        type:Schema.Types.ObjectId,
+        default:null
+    },
+    source:{
+        type:String,
+        required:true
+    },
+    amount:{
+        type:Number
+    }
+},
+{
+    timestamps:true,
+})
+
 
 const userSchema = new Schema<IUser>({
     name:{
@@ -21,6 +40,19 @@ const userSchema = new Schema<IUser>({
     },
     refreshToken:{
         type:String
+    },
+    ownReferralCode: {
+        type: String,
+        unique: true,
+        required: true,
+    },
+    usedReferralCode: {
+        type: String,
+        default: null,
+    },
+    wallet:{
+        type:[walletSchema],
+        default:[]
     }
 },{
     timestamps:true

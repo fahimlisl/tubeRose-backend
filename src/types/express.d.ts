@@ -1,4 +1,4 @@
-import { Admin } from "../models/admin.model";
+import { Admin } from "../models/admin.model.ts";
 
 declare global {
   namespace Express {

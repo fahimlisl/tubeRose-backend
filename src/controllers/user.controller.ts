@@ -7,6 +7,7 @@ import { ApiResponse } from "../utils/ApiResponse.ts";
 import { asyncHandler } from "../utils/AsyncHandler.ts";
 import { comparePassword, generateToken } from "../utils/auth.util.ts";
 import { option } from "../utils/option.ts";
+import { IUser } from "../interfaces/user.interface.ts";
 
 const sendOtpSecret = process.env.SEND_OTP_TOKEN_SECRET as string;
 const sendOtpExpiry = process.env.SEND_OTP_TOKEN_EXPIRY as string;
@@ -188,20 +189,87 @@ const registerUser = asyncHandler(async (req: Request, res: Response) => {
 
   const user = await User.findOne({ email });
   if (user) throw new ApiError(400, "email already registered!");
+
+  const generateUniqueReferralCode = async (): Promise<string> => {
+  let code: string;
+  let exists: boolean;
+
+  do {
+    code = crypto.randomBytes(4).toString("hex").toUpperCase();
+    const user = await User.findOne({ ownReferralCode: code });
+    exists = !!user;
+  } while (exists);
+
+    return code;
+  };
+
+  const ownReferralCode = await generateUniqueReferralCode();
+
   const u = await User.create({
     name,
     email,
     password,
     phoneNumber,
+    ownReferralCode
   });
 
   if (!u)
     throw new ApiError(500, "failed to register user! internal server error");
 
+  const accessToken = generateToken({_id:u._id,role:"user"},accessSecret,accessExpriy);
+  const refreshToken = generateToken({_id:u._id,role:"user"},refreshSecret,refreshExpriy);
+  if(!accessToken) throw new ApiError(400,"failed to generate access token");
+  if(!refreshToken) throw new ApiError(400,"failed to generate refresh token");
+
+  u.refreshToken = refreshToken;
+  await u.save({validateBeforeSave:false});
+
   return res
     .status(200)
     .clearCookie("phoneNumberToken")
+    .cookie("accessToken",accessToken,option)
+    .cookie("refreshToken",refreshToken,option)
     .json(new ApiResponse(200, u, "user registered successfully!"));
+});
+
+const applyReferralCode = asyncHandler(async (req: Request, res: Response) => {
+  const { referralCode } = req.body;
+  const userId = req.user?._id;
+
+  if (!referralCode) throw new ApiError(400, "Kindly enter a referral code!");
+
+  const registeringUser = await User.findById(userId);
+  if (!registeringUser) throw new ApiError(404, "User not found!");
+
+  if (registeringUser.usedReferralCode) {
+    throw new ApiError(400, "You have already applied a referral code!");
+  }
+
+  if (registeringUser.ownReferralCode === referralCode) {
+    throw new ApiError(400, "You cannot apply your own referral code!");
+  }
+
+  const codeOwner = await User.findOne({ ownReferralCode: referralCode });
+  if (!codeOwner) throw new ApiError(400, "Invalid referral code!");
+
+  codeOwner.wallet.push({
+    amount: 200,
+    source: "referral",
+    source_id: registeringUser._id, 
+  });
+  await codeOwner.save({ validateBeforeSave: false }); 
+
+  registeringUser.usedReferralCode = referralCode;
+  registeringUser.wallet.push({
+    amount: 200, 
+    source: "referral",
+    source_id: codeOwner._id,
+  });
+  await registeringUser.save({ validateBeforeSave: false }); 
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, {}, "Referral code applied successfully!"));
 });
 
 const loginUser = asyncHandler(async(req,res) => {
@@ -282,4 +350,4 @@ const logoutUser = asyncHandler(async(req:Request,res:Response) => {
 })
 
 
-export { checkPhoneNumber , sendOTP , verifyOTP , registerUser, loginUser , refreshAccessToken , logoutUser}
+export { checkPhoneNumber , sendOTP , verifyOTP , registerUser, loginUser , refreshAccessToken , logoutUser , applyReferralCode }

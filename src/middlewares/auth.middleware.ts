@@ -30,7 +30,7 @@ export const verifyJWT = async (req: Request, res: Response, next: NextFunction)
     const decode = Jwt.verify(token,process.env.ACCESS_TOKEN_SECRET as string) as JwtPayload;
     if(!decode) throw new ApiError(400,"Unauthorized access - token didn't matched!")
     const Model = roleModel[decode.role];
-    const user = await Model.findById(decode._id);
+    const user = await (Model as any).findById(decode._id);
     if(!user) throw new ApiError(400,"user wasn't able to found!");
     req.user = user;
     req.role = decode.role;

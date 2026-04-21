@@ -8,6 +8,17 @@ export interface IUser extends Document{
     email:string;
     phoneNumber:number;
     refreshToken:string;
+    ownReferralCode:string;
+    usedReferralCode:string | null;
+    wallet:IWallet[];
     createdAt: Date;
     updatedAt: Date;
+}
+
+export interface IWallet {
+    source_id:Types.ObjectId | null; // for only storing object id of user who has used the referral coupon , will be null for other things or we can also save order object id if we want 
+    amount:number;
+    source:string;
+    // createdAt: Date;
+    // updatedAt: Date;
 }
