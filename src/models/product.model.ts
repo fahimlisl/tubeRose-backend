@@ -1,6 +1,7 @@
-import mongoose from "mongoose";
+import { Schema , model } from "mongoose";
+import { IProduct, productDetails, sizeVariant } from "../interfaces/product.interface.ts";
 
-const sizeVariantSchema = new mongoose.Schema(
+const sizeVariantSchema = new Schema<sizeVariant>(
   {
     label: {
       type: String,
@@ -35,17 +36,19 @@ const sizeVariantSchema = new mongoose.Schema(
       default: 0,
     },
   },
-  { _id: false }
+  {
+    timestamps:false
+   }
 );
 
-const productDetailsSchema = new mongoose.Schema(
+const productDetailsSchema = new Schema<productDetails>(
   {
     title: { type: String },
   },
-  { timestamps: true }
+  { timestamps: false }
 );
 
-const productSchema = new mongoose.Schema(
+const productSchema = new Schema<IProduct>(
   {
     title: { 
         type: String, 
@@ -59,16 +62,21 @@ const productSchema = new mongoose.Schema(
         type: String, 
         required: true 
     },
-    image: {
-      url: { 
-        type: String, 
-        required: true 
-    },
-      public_id: { 
-        type: String, 
-        required: true 
-    },
-    },
+    image: [
+      {
+        url: {
+          type: String,
+        },
+        public_id: {
+          type: String,
+          required: true,
+        },
+        isThumbnail: {
+          type: Boolean,
+          default: false,
+        },
+      },
+    ],
     skinType: [
       {
         type: String,
@@ -86,4 +94,4 @@ const productSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-export const Product = mongoose.model("Product", productSchema);
+export const Product = model<IProduct>("Product", productSchema);

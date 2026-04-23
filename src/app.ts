@@ -2,12 +2,18 @@ import express from "express";
 import cookieParser from "cookie-parser"
 import morgan from "morgan"
 import dotenv from "dotenv"
+import cors from "cors"
 
 dotenv.config({
     path:"./.env"
 });
 const app = express();
 const isDev = process.env.NODE_ENV === "development"
+
+app.use(cors({
+    origin:"http://localhost:5173",
+    credentials:true
+}))
 
 
 // middlewares
