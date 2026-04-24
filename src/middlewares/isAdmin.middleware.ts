@@ -1,4 +1,4 @@
-import { ApiError } from "../utils/ApiError.js";
+import { ApiError } from "../utils/ApiError.ts";
 import { Request, Response, NextFunction } from "express";
 
 export const isAdmin = (req: Request, _: Response, next: NextFunction) => {

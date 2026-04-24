@@ -83,7 +83,15 @@ const adminLogin = asyncHandler(async(req:Request,res:Response) => {
     .json(
         new ApiResponse(
             200,
-            {accessToken,refreshToken},
+            {
+    accessToken,
+    refreshToken,
+    admin: {      
+      _id: admin._id,
+      role: "admin",
+      email: admin.email,
+    }
+  },
             "successfully logged in"
         )
     )
@@ -94,8 +102,11 @@ const adminLogout = asyncHandler(async(req:Request,res:Response) => {
     const admin = await Admin.findById(userId);
     if(!admin) throw new ApiError(400,"unauthorized!");
 
-    admin.refreshToken = "";
-    admin.save({validateBeforeSave:false});
+    // admin.refreshToken = "";
+    // admin.save({validateBeforeSave:false});
+     await Admin.findByIdAndUpdate(userId, {
+        $unset: { refreshToken: 1 }  // remove from DB
+    });
     return res
     .status(200)
     .clearCookie("refreshToken",option)
@@ -134,7 +145,11 @@ const refreshAccessTokenAdmin = asyncHandler(async (req: Request, res: Response)
     return res
         .status(200)
         .cookie("accessToken", newAccessToken, option)
-        .json(new ApiResponse(200, { accessToken: newAccessToken }, "Access token refreshed"));
+        .json(new ApiResponse(200, { accessToken: newAccessToken ,admin: {      
+      _id: admin._id,
+      role: "admin",
+      email: admin.email,
+    }}, "Access token refreshed"));
 });
 
 

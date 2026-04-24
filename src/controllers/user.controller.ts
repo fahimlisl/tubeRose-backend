@@ -173,7 +173,7 @@ const verifyOTP = asyncHandler(async (req: Request, res: Response) => {
 
 const registerUser = asyncHandler(async (req: Request, res: Response) => {
   const { name, email, password } = req.body; // will be part of frontend how i receive the phone number from previous step! also need to check wheather its safe or not!
-  if(!password || !(password.length < 8 )) throw new ApiError(400,"password of minimum length 8 required.");
+  if(!password || !(password.length <= 8 )) throw new ApiError(400,"password of minimum length 8 required.");
   const phoneNumberToken = req.cookies?.phoneNumberToken;
   let decoded: PhoneNumberTokenPayload;
   try {
@@ -293,17 +293,31 @@ const loginUser = asyncHandler(async(req,res) => {
     user.refreshToken = refreshToken;
     await user.save({validateBeforeSave:false});
 
-    return res
-    .status(200)
-    .cookie("accessToken",accessToken,option)
-    .cookie("refreshToken",refreshToken,option)
-    .json(
-        new ApiResponse(
-            200,
-            {accessToken,refreshToken},
-            "successfully logged in"
-        )
-    ) 
+    // return res
+    // .status(200)
+    // .cookie("accessToken",accessToken,option)
+    // .cookie("refreshToken",refreshToken,option)
+    // .json(
+    //     new ApiResponse(
+    //         200,
+    //         {accessToken,refreshToken},
+    //         "successfully logged in"
+    //     )
+    // ) 
+    return res.status(200)
+  .cookie("accessToken", accessToken, option)
+  .cookie("refreshToken", refreshToken, option)
+  .json(new ApiResponse(200, {
+    accessToken,
+    refreshToken,
+    user: {                   // ← add this
+      _id: user._id,
+      name: user.name,
+      email: user.email,
+      phoneNumber: user.phoneNumber,
+      role: "user",
+    }
+  }, "successfully logged in"));
 });
 
 const refreshAccessToken = asyncHandler(async(req:Request,res:Response) => {
@@ -317,16 +331,18 @@ const refreshAccessToken = asyncHandler(async(req:Request,res:Response) => {
 
   const newAccessToken = generateToken({_id:user._id,role:"user"},accessSecret,accessExpriy);
   if(!newAccessToken) throw new ApiError(400,"failed to generate new access token.");
-  return res
-  .status(200)
-  .cookie("accessToken",newAccessToken,option)
-  .json(
-    new ApiResponse(
-      200,
-      newAccessToken,
-      "access token has been refreshed."
-    )
-  )
+return res.status(200)
+  .cookie("accessToken", newAccessToken, option)
+  .json(new ApiResponse(200, {
+    accessToken: newAccessToken,
+    user: {                   // ← add this
+      _id: user._id,
+      name: user.name,
+      email: user.email,
+      phoneNumber: user.phoneNumber,
+      role: "user",
+    }
+  }, "access token refreshed."));
 });
 
 const logoutUser = asyncHandler(async(req:Request,res:Response) => {

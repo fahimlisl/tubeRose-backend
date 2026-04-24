@@ -4,8 +4,8 @@ import { verifyJWT } from "../middlewares/auth.middleware.ts";
 
 const router = Router();
 
-router.route("/login").post(loginUser)
-router.route("/logout").post(verifyJWT,logoutUser)
+router.route("/auth/login").post(loginUser)
+router.route("/auth/logout").post(verifyJWT,logoutUser)
 router.route("/refresh/access-token").post(refreshAccessToken)
 
 
