@@ -1,6 +1,6 @@
 import { Schema , model } from "mongoose";
 import bcryptjs from "bcryptjs"
-import { IUser, IWallet } from "../interfaces/user.interface";
+import { IAddress, ICart, IUser, IWallet } from "../interfaces/user.interface";
 
 
 const walletSchema = new Schema<IWallet>({
@@ -20,6 +20,58 @@ const walletSchema = new Schema<IWallet>({
     timestamps:true,
 })
 
+const addressSchema = new Schema<IAddress>({
+    fullName: {
+        type: String,
+        required:true
+
+    },
+    phone: {
+        type: String,
+        required:true
+
+    },
+    houseNo:{
+        type: String
+
+    },
+    addressLine1: {
+        type: String,
+        required:true
+
+    },
+    addressLine2: {
+        type: String
+
+    },
+    city: {
+        type: String,
+        required:true
+    },
+    state: {
+        type: String,
+        required:true
+
+    },
+    pincode: {
+        type: String,
+        required:true
+
+    },
+    isDefault: {
+        type: Boolean,
+        default:false
+    },
+})
+
+const cartSchema = new Schema<ICart>({
+    product:{
+        type: Schema.Types.ObjectId,
+        ref:"Product"
+    },
+    quantity:{type: Number , default: 1}
+})
+
 
 const userSchema = new Schema<IUser>({
     name:{
@@ -32,6 +84,7 @@ const userSchema = new Schema<IUser>({
     },
     email:{
         type:String,
+        unique:true
         // required:true // will not make it mandetory as of now , bt surely will need to   
     },
     phoneNumber:{
@@ -52,6 +105,13 @@ const userSchema = new Schema<IUser>({
     },
     wallet:{
         type:[walletSchema],
+        default:[]
+    },
+    addresses:{
+        type:[addressSchema],
+    },
+    cart:{
+        type:[cartSchema],
         default:[]
     }
 },{

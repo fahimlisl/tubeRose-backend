@@ -7,12 +7,14 @@ export interface IUser extends Document{
     password:string;
     email:string;
     phoneNumber:number;
-    refreshToken:string;
+    refreshToken?:string;
     ownReferralCode:string;
-    usedReferralCode:string | null;
+    usedReferralCode?:string | null;
     wallet:IWallet[];
     createdAt: Date;
     updatedAt: Date;
+    addresses:IAddress[];
+    cart:ICart[];
 }
 
 export interface IWallet {
@@ -21,4 +23,21 @@ export interface IWallet {
     source:string;
     // createdAt: Date;
     // updatedAt: Date;
+}
+
+export interface IAddress {
+    fullName:string;
+    phone:string;
+    houseNo?:string;
+    addressLine1:string;
+    addressLine2?:string;
+    city:string;
+    state:string;
+    pincode:string;
+    isDefault: boolean;
+}
+
+export interface ICart {
+    product:Types.ObjectId;
+    quantity:number;
 }

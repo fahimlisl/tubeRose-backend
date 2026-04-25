@@ -13,7 +13,7 @@ router.route("/auth/otp/verify").post(verifyOTP)
 router.route("/apply/coupon/referral").post(verifyJWT,applyReferralCode)
 
 // product
-router.route("/fetch/product/all").get(verifyJWT,fetchAllProducts)
-router.route("/fetch/product/:id").get(verifyJWT,fetchParticularProduct)
+router.route("/fetch/product/all").get(fetchAllProducts)
+router.route("/fetch/product/:id").get(fetchParticularProduct)
 
 export default router;
