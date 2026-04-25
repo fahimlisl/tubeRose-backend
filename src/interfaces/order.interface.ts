@@ -28,6 +28,7 @@ export interface IOrder extends Document {
         price:number,
         quantity:number,
         image:string, // thinking weather we should store image or, we can directly get it from productId that we have
+        sizeLabel:string
     }[],
     baseAmount:number
 }

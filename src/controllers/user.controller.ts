@@ -224,12 +224,22 @@ const registerUser = asyncHandler(async (req: Request, res: Response) => {
   u.refreshToken = refreshToken;
   await u.save({validateBeforeSave:false});
 
-  return res
-    .status(200)
-    .clearCookie("phoneNumberToken")
-    .cookie("accessToken",accessToken,option)
-    .cookie("refreshToken",refreshToken,option)
-    .json(new ApiResponse(200, u, "user registered successfully!"));
+return res
+  .status(200)
+  .clearCookie("phoneNumberToken")
+  .cookie("accessToken", accessToken, option)
+  .cookie("refreshToken", refreshToken, option)
+  .json(new ApiResponse(200, {
+    accessToken,
+    refreshToken,
+    user: {           // ← send shape consistent with loginUser
+      _id:         u._id,
+      name:        u.name,
+      email:       u.email,
+      phoneNumber: u.phoneNumber,
+      role:        "user",
+    }
+  }, "user registered successfully!"));
 });
 
 const applyReferralCode = asyncHandler(async (req: Request, res: Response) => {

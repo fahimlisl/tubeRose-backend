@@ -40,4 +40,5 @@ export interface IAddress {
 export interface ICart {
     product:Types.ObjectId;
     quantity:number;
+    sizeLabel:string;
 }

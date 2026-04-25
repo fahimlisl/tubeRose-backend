@@ -6,10 +6,11 @@ const orderSchema = new Schema<IOrder>({
   items: [
     {
       product: { type: Schema.Types.ObjectId, ref: "Product" },
-      name: String,
-      price: Number,       
-      quantity: Number,
-      image: String,
+      name: {type: String},
+      sizeLabel: { type: String, required: true },
+      price: {type: Number},       
+      quantity: {type: Number},
+      image: {type: String},
     }
   ],
   shippingAddress: {

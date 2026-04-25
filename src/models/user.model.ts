@@ -69,7 +69,11 @@ const cartSchema = new Schema<ICart>({
         type: Schema.Types.ObjectId,
         ref:"Product"
     },
-    quantity:{type: Number , default: 1}
+    quantity:{type: Number , default: 1},
+    sizeLabel: {
+        type: String,
+        required: true, 
+  },
 })
 
 

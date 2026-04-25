@@ -2,6 +2,7 @@ import { Router } from "express";
 import { registerUser, checkPhoneNumber, sendOTP, verifyOTP, applyReferralCode } from "../controllers/user.controller";
 import { verifyJWT } from "../middlewares/auth.middleware";
 import { fetchAllProducts, fetchParticularProduct } from "../controllers/product.controller";
+import { checkPincodeServiceability } from "../controllers/shipping.controller";
 
 
 const router = Router();
@@ -16,4 +17,6 @@ router.route("/apply/coupon/referral").post(verifyJWT,applyReferralCode)
 router.route("/fetch/product/all").get(fetchAllProducts)
 router.route("/fetch/product/:id").get(fetchParticularProduct)
 
+// shipping
+router.get("/check/serviceability", checkPincodeServiceability);
 export default router;
