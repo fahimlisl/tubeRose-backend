@@ -4,6 +4,7 @@ import { verifyJWT } from "../middlewares/auth.middleware.ts";
 import { addProduct, editProduct, fetchAllProducts, fetchParticularProduct, removeProduct } from "../controllers/product.controller.ts";
 import { upload } from "../middlewares/multer.middleware.ts";
 import { isAdmin } from "../middlewares/isAdmin.middleware.ts";
+import { createBanner, deleteBanner, getAllBanners, toggleBanner, updateBanner } from "../controllers/banner.controller.ts";
 
 
 const router = Router();
@@ -19,5 +20,13 @@ router.route("/product/edit/:id").patch(verifyJWT,isAdmin,upload.array("image",3
 router.route("/product/delete/:id").delete(verifyJWT,isAdmin,removeProduct)
 router.route("/product/fetch/all").get(verifyJWT,isAdmin,fetchAllProducts)
 router.route("/product/fetch/:id").get(verifyJWT,isAdmin,fetchParticularProduct)
+
+
+// banner
+router.route("/banner/add").post(verifyJWT,isAdmin,createBanner)
+router.route("/banner/edit/:id").patch(verifyJWT,isAdmin,updateBanner)
+router.route("/banner/toggle/:id").patch(verifyJWT,isAdmin,toggleBanner)
+router.route("/banner/fetch/all").get(verifyJWT,isAdmin,getAllBanners)
+router.route("/banner/delete/:id").delete(verifyJWT,isAdmin,deleteBanner)
 
 export default router;

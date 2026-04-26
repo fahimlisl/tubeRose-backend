@@ -3,6 +3,7 @@ import { registerUser, checkPhoneNumber, sendOTP, verifyOTP, applyReferralCode }
 import { verifyJWT } from "../middlewares/auth.middleware";
 import { fetchAllProducts, fetchParticularProduct } from "../controllers/product.controller";
 import { checkPincodeServiceability } from "../controllers/shipping.controller";
+import { getActiveBanners } from "../controllers/banner.controller";
 
 
 const router = Router();
@@ -19,4 +20,7 @@ router.route("/fetch/product/:id").get(fetchParticularProduct)
 
 // shipping
 router.get("/check/serviceability", checkPincodeServiceability);
+
+// banner
+router.route("/banner/fetch/active").get(getActiveBanners)
 export default router;

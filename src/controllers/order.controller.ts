@@ -231,9 +231,49 @@ const getOrder = asyncHandler(async (req: Request, res: Response) => {
   return res.status(200).json(new ApiResponse(200, order, "order fetched!"));
 });
 
+const getAllOrders = asyncHandler(async(req:Request,res:Response) => {
+  const orders = await Order.find({}).populate("user");
+  if(!orders) {
+    return res
+    .status(200)
+    .json(
+      new ApiResponse(
+        200,
+        orders,
+        "no orders have been placed yet."
+      )
+    )
+  };
+  return res
+  .status(200)
+  .json(
+    new ApiResponse(
+      200,
+      orders,
+      "orders have been fetcehd successfully"
+    )
+  )
+});
+
+const getParticularOrder = asyncHandler(async(req:Request,res:Response) => {
+  const { orderId } = req.params;
+  if(!orderId) throw new ApiError(400,"order id required.");
+  const order = await Order.findById(orderId).populate("user");
+  if(!order) throw new ApiError(400,"order was not able to found.");
+  return res
+  .status(200)
+  .json(
+    new ApiResponse(
+      200,
+      order,
+      "order has been fetched successfully."
+    )
+  )
+})
+
 const getUserOrders = asyncHandler(async (req: Request, res: Response) => {
   const orders = await Order.find({ user: req.user._id }).sort({ createdAt: -1 });
   return res.status(200).json(new ApiResponse(200, orders, "orders fetched!"));
 });
 
-export { createOrder, verifyAndSaveOrder, getOrder, getUserOrders };
+export { createOrder, verifyAndSaveOrder, getOrder, getUserOrders ,getAllOrders ,getParticularOrder};
