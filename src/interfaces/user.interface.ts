@@ -21,6 +21,8 @@ export interface IWallet {
     source_id:Types.ObjectId | null; // for only storing object id of user who has used the referral coupon , will be null for other things or we can also save order object id if we want 
     amount:number;
     source:string;
+    type:"credit" | "debit";
+    description?:string;
     // createdAt: Date;
     // updatedAt: Date;
 }

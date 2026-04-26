@@ -30,5 +30,10 @@ export interface IOrder extends Document {
         image:string, // thinking weather we should store image or, we can directly get it from productId that we have
         sizeLabel:string
     }[],
-    baseAmount:number
+    baseAmount:number;
+    shiprocketShipmentId:string;    
+    shiprocketStatus:string;
+    awbCode:string;
+    createdAt: Date;
+    updatedAt: Date;
 }

@@ -8,6 +8,7 @@ import { asyncHandler } from "../utils/AsyncHandler.ts";
 import { comparePassword, generateToken } from "../utils/auth.util.ts";
 import { option } from "../utils/option.ts";
 import { IUser } from "../interfaces/user.interface.ts";
+import { JwtPayload, OTPTokenPayload, PhoneNumberTokenPayload } from "../interfaces/global.interface.ts";
 
 const sendOtpSecret = process.env.SEND_OTP_TOKEN_SECRET as string;
 const sendOtpExpiry = process.env.SEND_OTP_TOKEN_EXPIRY as string;
@@ -265,6 +266,8 @@ const applyReferralCode = asyncHandler(async (req: Request, res: Response) => {
   codeOwner.wallet.push({
     amount: 200,
     source: "referral",
+    type:"credit",
+    description:"referral bonus",
     source_id: registeringUser._id, 
   });
   await codeOwner.save({ validateBeforeSave: false }); 
@@ -273,6 +276,8 @@ const applyReferralCode = asyncHandler(async (req: Request, res: Response) => {
   registeringUser.wallet.push({
     amount: 200, 
     source: "referral",
+    type:"credit",
+    description:"referral bonus",
     source_id: codeOwner._id,
   });
   await registeringUser.save({ validateBeforeSave: false }); 
@@ -373,7 +378,34 @@ const logoutUser = asyncHandler(async(req:Request,res:Response) => {
       "user logged out successfully"
     )
   )
-})
+});
+
+const getProfile = asyncHandler(async(req:Request,res:Response) => {
+  const userId = req.user._id;
+  if(!userId) throw new ApiError(401,"unautorized access");
+  const user = await User.findById(userId);
+  if(!user) throw new ApiError(401,"unautorized access");
+  return res
+  .status(200)
+  .json(
+    new ApiResponse(
+      200,
+      user,
+      "profile has been fetched successfully"
+    )
+  )
+});
+
+const addAddress = asyncHandler(async (req, res) => {
+  const user = await User.findByIdAndUpdate(
+    req.user._id,
+    { $push: { addresses: req.body } },
+    { new: true }
+  );
+  return res.status(200).json(new ApiResponse(200, user, "address added!"));
+});
 
 
-export { checkPhoneNumber , sendOTP , verifyOTP , registerUser, loginUser , refreshAccessToken , logoutUser , applyReferralCode }
+
+
+export { checkPhoneNumber , sendOTP , verifyOTP , registerUser, loginUser , refreshAccessToken , logoutUser , applyReferralCode , getProfile , addAddress}

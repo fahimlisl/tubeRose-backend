@@ -30,10 +30,22 @@ const orderSchema = new Schema<IOrder>({
   razorpayPaymentId: String,
   baseAmount:Number,
   totalAmount: Number,
+  shiprocketShipmentId: {
+    type: String,
+    default: null,
+  },
+  shiprocketStatus: {
+    type: String,
+    default: "pending", // pending | created | failed
+  },
   discount:{
     code:String,
     amount:String
-  }
+  },
+  awbCode:{ 
+    type: String,
+    default: null 
+  },
 }, { timestamps: true });
 
 

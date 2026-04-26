@@ -13,8 +13,18 @@ const walletSchema = new Schema<IWallet>({
         required:true
     },
     amount:{
-        type:Number
+        type:Number,
+        min:0
+    },
+    type:{
+         type: String,
+        required: true,
+        enum: ["credit", "debit"],
+    },
+    description:{
+        type:String
     }
+
 },
 {
     timestamps:true,

@@ -5,7 +5,6 @@ import { Request, Response } from "express";
 import { User } from "../models/user.model.ts";
 import { Product } from "../models/product.model.ts";
 
-// ── Get cart (populated) ──────────────────────────────────────────────────────
 const getCart = asyncHandler(async (req: Request, res: Response) => {
   const user = await User.findById(req.user._id).populate({
     path: "cart.product",
@@ -20,18 +19,14 @@ const getCart = asyncHandler(async (req: Request, res: Response) => {
     .json(new ApiResponse(200, user.cart, "cart fetched successfully!"));
 });
 
-// ── Add single item ───────────────────────────────────────────────────────────
-// Now matches by productId + sizeLabel together — same product, diff size = separate cart entry
 const addToCart = asyncHandler(async (req: Request, res: Response) => {
   const { productId, sizeLabel, quantity = 1 } = req.body;
-
   if (!productId) throw new ApiError(400, "productId is required!");
   if (!sizeLabel) throw new ApiError(400, "sizeLabel is required!");
 
   const product = await Product.findById(productId);
   if (!product) throw new ApiError(404, "product not found!");
 
-  // validate size exists and has stock
   const sizeVariant = product.sizes.find((s: any) => s.label === sizeLabel);
   if (!sizeVariant) throw new ApiError(400, "invalid size!");
   if (sizeVariant.stock === 0) throw new ApiError(400, "out of stock!");
@@ -39,7 +34,6 @@ const addToCart = asyncHandler(async (req: Request, res: Response) => {
   const user = await User.findById(req.user._id);
   if (!user) throw new ApiError(404, "user not found!");
 
-  // match by both productId AND sizeLabel
   const existingItem = user.cart.find(
     (item) =>
       item.product.toString() === productId && item.sizeLabel === sizeLabel
@@ -58,8 +52,6 @@ const addToCart = asyncHandler(async (req: Request, res: Response) => {
     .json(new ApiResponse(200, user.cart, "item added to cart!"));
 });
 
-// ── Remove single item ────────────────────────────────────────────────────────
-// Expects productId + sizeLabel in body to identify exact cart entry
 const removeFromCart = asyncHandler(async (req: Request, res: Response) => {
   const { productId, sizeLabel } = req.body;
 
@@ -81,7 +73,6 @@ const removeFromCart = asyncHandler(async (req: Request, res: Response) => {
     .json(new ApiResponse(200, {}, "item removed from cart!"));
 });
 
-// ── Update quantity ───────────────────────────────────────────────────────────
 const updateCartQuantity = asyncHandler(async (req: Request, res: Response) => {
   const { productId, sizeLabel, quantity } = req.body;
 
@@ -92,7 +83,6 @@ const updateCartQuantity = asyncHandler(async (req: Request, res: Response) => {
   if (!user) throw new ApiError(404, "user not found!");
 
   if (quantity < 1) {
-    // treat as remove
     user.cart = user.cart.filter(
       (item) =>
         !(item.product.toString() === productId && item.sizeLabel === sizeLabel)
@@ -113,10 +103,8 @@ const updateCartQuantity = asyncHandler(async (req: Request, res: Response) => {
     .json(new ApiResponse(200, user.cart, "cart updated!"));
 });
 
-// ── Merge anonymous cart on login/register ────────────────────────────────────
 const mergeCart = asyncHandler(async (req: Request, res: Response) => {
   const { anonymousCart } = req.body;
-  // anonymousCart: [{ productId, sizeLabel, quantity }]
 
   if (!Array.isArray(anonymousCart) || anonymousCart.length === 0) {
     return res
@@ -159,7 +147,6 @@ const mergeCart = asyncHandler(async (req: Request, res: Response) => {
     .json(new ApiResponse(200, populated?.cart, "cart merged successfully!"));
 });
 
-// ── Clear cart ────────────────────────────────────────────────────────────────
 const clearCart = asyncHandler(async (req: Request, res: Response) => {
   const user = await User.findById(req.user._id);
   if (!user) throw new ApiError(404, "user not found!");
