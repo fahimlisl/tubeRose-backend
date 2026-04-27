@@ -3,6 +3,7 @@ import { addAddress, getProfile, loginUser, logoutUser, refreshAccessToken } fro
 import { verifyJWT } from "../middlewares/auth.middleware.ts";
 import { addToCart, clearCart, getCart, mergeCart, removeFromCart, updateCartQuantity } from "../controllers/cart.controller.ts";
 import { trackOrderByAwb, trackShipmentByAwb } from "../utils/shiprocket.ts";
+import { applyCoupon } from "../controllers/coupon.controller.ts";
 
 const router = Router();
 
@@ -25,5 +26,8 @@ router.route("/cart/clear").delete(verifyJWT, clearCart);
 // order tracking
 // router.route("/order/track/:awb").get(verifyJWT,trackShipmentByAwb)
 router.route("/order/track/:awb").get(verifyJWT,trackOrderByAwb)
+
+// user route
+router.route("/coupon/apply").post(verifyJWT, applyCoupon)
 
 export default router;

@@ -5,6 +5,7 @@ import { addProduct, editProduct, fetchAllProducts, fetchParticularProduct, remo
 import { upload } from "../middlewares/multer.middleware.ts";
 import { isAdmin } from "../middlewares/isAdmin.middleware.ts";
 import { createBanner, deleteBanner, getAllBanners, toggleBanner, updateBanner } from "../controllers/banner.controller.ts";
+import { addCoupon, applyCoupon, deleteCoupon, editCoupon, getAllCoupons, getCouponById, toggleCoupon } from "../controllers/coupon.controller.ts";
 
 
 const router = Router();
@@ -28,5 +29,14 @@ router.route("/banner/edit/:id").patch(verifyJWT,isAdmin,updateBanner)
 router.route("/banner/toggle/:id").patch(verifyJWT,isAdmin,toggleBanner)
 router.route("/banner/fetch/all").get(verifyJWT,isAdmin,getAllBanners)
 router.route("/banner/delete/:id").delete(verifyJWT,isAdmin,deleteBanner)
+
+
+// coupon
+router.route("/coupon/add").post(verifyJWT, isAdmin, addCoupon)
+router.route("/coupon/all").get(verifyJWT, isAdmin, getAllCoupons)
+router.route("/coupon/:id").get(verifyJWT, isAdmin, getCouponById)
+router.route("/coupon/edit/:id").patch(verifyJWT, isAdmin, editCoupon)
+router.route("/coupon/toggle/:id").patch(verifyJWT, isAdmin, toggleCoupon)
+router.route("/coupon/delete/:id").delete(verifyJWT, isAdmin, deleteCoupon)
 
 export default router;

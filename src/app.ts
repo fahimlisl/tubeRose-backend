@@ -1,39 +1,59 @@
 import express from "express";
-import cookieParser from "cookie-parser"
-import morgan from "morgan"
-import dotenv from "dotenv"
-import cors from "cors"
+import cookieParser from "cookie-parser";
+import morgan from "morgan";
+import dotenv from "dotenv";
+import cors from "cors";
 
 dotenv.config({
-    path:"./.env"
+  path: "./.env",
 });
 const app = express();
-const isDev = process.env.NODE_ENV === "development"
+const isDev = process.env.NODE_ENV === "development";
 
-app.use(cors({
-    origin:"http://localhost:5173",
-    credentials:true
-}))
-
+app.use(
+  cors({
+    origin: "http://localhost:5173",
+    credentials: true,
+  })
+);
 
 // middlewares
-app.use(morgan( isDev ? "dev" : "combined"))
-app.use(express.json({limit: "16kb"}))
-app.use(express.urlencoded({limit: "16kb", extended:true}))
-app.use(express.static("public"))
+app.use(morgan(isDev ? "dev" : "combined"));
+app.use(express.json({ limit: "16kb" }));
+app.use(express.urlencoded({ limit: "16kb", extended: true }));
+app.use(express.static("public"));
 app.use(cookieParser());
 
+// routes
+import adminRouter from "./routes/admin.route.ts";
+import publicRouter from "./routes/public.route.ts";
+import userRouter from "./routes/user.route.ts";
+import orderRouter from "./routes/order.route.ts";
+app.use("/api/v1/admin", adminRouter);
+app.use("/api/v1/public", publicRouter);
+app.use("/api/v1/user", userRouter);
+app.use("/api/v1/order", orderRouter);
 
-// routes 
-import adminRouter from "./routes/admin.route.ts"
-import publicRouter from "./routes/public.route.ts"
-import userRouter from "./routes/user.route.ts"
-import orderRouter from "./routes/order.route.ts"
-app.use("/api/v1/admin",adminRouter)
-app.use("/api/v1/public",publicRouter)
-app.use("/api/v1/user",userRouter)
-app.use("/api/v1/order",orderRouter)
+// Error handling middleware
+app.use(
+  (
+    err: any,
+    req: express.Request,
+    res: express.Response,
+    next: express.NextFunction
+  ) => {
+    const statusCode = err.statusCode || 500;
+    const message = err.message || "Internal Server Error";
 
+    console.error(`[ERROR] ${statusCode}: ${message}`);
 
+    return res.status(statusCode).json({
+      statusCode,
+      data: null,
+      message,
+      success: false,
+    });
+  }
+);
 
 export default app;
