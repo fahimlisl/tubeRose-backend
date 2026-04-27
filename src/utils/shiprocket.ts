@@ -1,4 +1,8 @@
 import { ShiprocketOrderPayload } from "../interfaces/global.interface.ts";
+import { ApiError } from "./ApiError.ts";
+import { ApiResponse } from "./ApiResponse.ts";
+import { asyncHandler } from "./AsyncHandler.ts";
+import { Request,Response } from "express";
 
 let cachedToken: string | null = null;
 let tokenExpiry: number        = 0;
@@ -180,3 +184,80 @@ export const requestPickup = async (shipmentId: string): Promise<void> => {
         throw new Error(data?.message ?? "Pickup request failed");
     }
 };
+
+// swap these three lines for Redis:
+//   await redis.set("shiprocket_token", token, { EX: 23 * 60 * 60 });
+//   const cached = await redis.get("shiprocket_token");
+
+export interface TrackingActivity {
+    date:     string;
+    activity: string;
+    location: string;
+    status:   string;
+}
+
+export interface TrackingResult {
+    awb:             string;
+    currentStatus:   string;
+    currentLocation: string;
+    etd:             string | null;   // estimated delivery date
+    activities:      TrackingActivity[];
+}
+
+export const trackShipmentByAwb = async (awb: string): Promise<TrackingResult> => {
+    const token = await getShiprocketToken();
+
+    const res = await fetch(
+        `https://apiv2.shiprocket.in/v1/external/courier/track/awb/${awb}`,
+        {
+            headers: {
+                "Content-Type":  "application/json",
+                "Authorization": `Bearer ${token}`,
+            },
+        }
+    );
+
+
+    const data = await res.json();
+
+    if (!res.ok) {
+        console.error("Shiprocket tracking failed:", data);
+        throw new Error(data?.message ?? "Failed to fetch tracking data");
+    }
+
+    const trackingData = data?.tracking_data;
+
+    if (!trackingData) {
+        throw new Error("No tracking data returned by Shiprocket");
+    }
+
+    // Normalize Shiprocket's response into a clean shape for the frontend
+    const activities: TrackingActivity[] = (
+        trackingData.shipment_track_activities ?? []
+    ).map((a: any) => ({
+        date:     a.date     ?? "",
+        activity: a.activity ?? "",
+        location: a.location ?? "",
+        status:   a.status   ?? "",
+    }));
+
+    return {
+        awb,
+        currentStatus:   trackingData.shipment_track?.[0]?.current_status   ?? "In Transit",
+        currentLocation: trackingData.shipment_track?.[0]?.current_location ?? "",
+        etd:             trackingData.shipment_track?.[0]?.etd               ?? null,
+        activities,
+    };
+};
+
+
+export const trackOrderByAwb = asyncHandler(async (req: Request, res: Response) => {
+  const { awb } = req.params;
+  if (!awb) throw new ApiError(400, "AWB code is required.");
+
+  const trackingData = await trackShipmentByAwb(awb);
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, trackingData, "Tracking data fetched successfully."));
+});

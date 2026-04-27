@@ -4,8 +4,8 @@ import { ApiError } from "../utils/ApiError.ts";
 import { Request,Response } from "express";
 import { Admin } from "../models/admin.model.ts";
 import { comparePassword, generateToken } from "../utils/auth.util.ts";
-import { option } from "../utils/option.ts";
 import jwt from "jsonwebtoken"
+import { accessTokenOption, refreshTokenOption } from "../utils/option.ts";
 
 
 const accessSecret = process.env.ACCESS_TOKEN_SECRET as string;
@@ -78,8 +78,8 @@ const adminLogin = asyncHandler(async(req:Request,res:Response) => {
 
     return res
     .status(200)
-    .cookie("accessToken",accessToken,option)
-    .cookie("refreshToken",refreshToken,option)
+    .cookie("admin_accessToken",accessToken,accessTokenOption)
+    .cookie("admin_refreshToken",refreshToken,refreshTokenOption)
     .json(
         new ApiResponse(
             200,
@@ -102,15 +102,13 @@ const adminLogout = asyncHandler(async(req:Request,res:Response) => {
     const admin = await Admin.findById(userId);
     if(!admin) throw new ApiError(400,"unauthorized!");
 
-    // admin.refreshToken = "";
-    // admin.save({validateBeforeSave:false});
      await Admin.findByIdAndUpdate(userId, {
         $unset: { refreshToken: 1 }  // remove from DB
     });
     return res
     .status(200)
-    .clearCookie("refreshToken",option)
-    .clearCookie("accessToken",option)
+    .clearCookie("admin_refreshToken",accessTokenOption)
+    .clearCookie("admin_accessToken",refreshTokenOption)
     .json(
         new ApiResponse(
             200,
@@ -121,35 +119,44 @@ const adminLogout = asyncHandler(async(req:Request,res:Response) => {
 });
 
 const refreshAccessTokenAdmin = asyncHandler(async (req: Request, res: Response) => {
-    const incomingRefreshToken = req.cookies?.refreshToken;
+    const incomingRefreshToken = req.cookies?.admin_refreshToken;
 
-    if (!incomingRefreshToken) {
-        throw new ApiError(401, "Unauthorized request");
-    }
+    if (!incomingRefreshToken) throw new ApiError(401, "Unauthorized request");
+
     const decoded = jwt.verify(incomingRefreshToken, refreshSecret) as any;
 
     const admin = await Admin.findById(decoded?._id);
-
-    if (!admin) {
-        throw new ApiError(401, "Invalid refresh token");
-    }
-    if (admin.refreshToken !== incomingRefreshToken) {
+    if (!admin) throw new ApiError(401, "Invalid refresh token");
+    if (admin.refreshToken !== incomingRefreshToken)
         throw new ApiError(401, "Refresh token is expired or used");
-    }
+
     const newAccessToken = generateToken(
         { _id: admin._id, role: "admin" },
         accessSecret,
         accessExpriy
     );
 
+    const newRefreshToken = generateToken(
+        { _id: admin._id, role: "admin" },
+        refreshSecret,
+        refreshExpriy
+    );
+
+    admin.refreshToken = newRefreshToken;
+    await admin.save({ validateBeforeSave: false });
+
     return res
         .status(200)
-        .cookie("accessToken", newAccessToken, option)
-        .json(new ApiResponse(200, { accessToken: newAccessToken ,admin: {      
-      _id: admin._id,
-      role: "admin",
-      email: admin.email,
-    }}, "Access token refreshed"));
+        .cookie("admin_accessToken", newAccessToken, accessTokenOption)
+        .cookie("admin_refreshToken", newRefreshToken, refreshTokenOption) 
+        .json(new ApiResponse(200, {
+            accessToken: newAccessToken,
+            admin: {
+                _id: admin._id,
+                role: "admin",
+                email: admin.email,
+            }
+        }, "Access token refreshed"));
 });
 
 

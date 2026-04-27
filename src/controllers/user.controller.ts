@@ -6,8 +6,7 @@ import { ApiError } from "../utils/ApiError.ts";
 import { ApiResponse } from "../utils/ApiResponse.ts";
 import { asyncHandler } from "../utils/AsyncHandler.ts";
 import { comparePassword, generateToken } from "../utils/auth.util.ts";
-import { option } from "../utils/option.ts";
-import { IUser } from "../interfaces/user.interface.ts";
+import { accessTokenOption, refreshTokenOption } from "../utils/option.ts";
 import { JwtPayload, OTPTokenPayload, PhoneNumberTokenPayload } from "../interfaces/global.interface.ts";
 
 const sendOtpSecret = process.env.SEND_OTP_TOKEN_SECRET as string;
@@ -228,8 +227,8 @@ const registerUser = asyncHandler(async (req: Request, res: Response) => {
 return res
   .status(200)
   .clearCookie("phoneNumberToken")
-  .cookie("accessToken", accessToken, option)
-  .cookie("refreshToken", refreshToken, option)
+  .cookie("accessToken", accessToken, accessTokenOption)
+  .cookie("refreshToken", refreshToken, refreshTokenOption)
   .json(new ApiResponse(200, {
     accessToken,
     refreshToken,
@@ -308,56 +307,60 @@ const loginUser = asyncHandler(async(req,res) => {
     user.refreshToken = refreshToken;
     await user.save({validateBeforeSave:false});
 
-    // return res
-    // .status(200)
-    // .cookie("accessToken",accessToken,option)
-    // .cookie("refreshToken",refreshToken,option)
-    // .json(
-    //     new ApiResponse(
-    //         200,
-    //         {accessToken,refreshToken},
-    //         "successfully logged in"
-    //     )
-    // ) 
     return res.status(200)
-  .cookie("accessToken", accessToken, option)
-  .cookie("refreshToken", refreshToken, option)
-  .json(new ApiResponse(200, {
-    accessToken,
-    refreshToken,
-    user: {                   // ← add this
-      _id: user._id,
-      name: user.name,
-      email: user.email,
-      phoneNumber: user.phoneNumber,
-      role: "user",
-    }
-  }, "successfully logged in"));
+              .cookie("accessToken", accessToken, accessTokenOption)
+              .cookie("refreshToken", refreshToken, refreshTokenOption)
+              .json(new ApiResponse(200, {
+                  accessToken,
+                  refreshToken,
+                  user: {                  
+                    _id: user._id,
+                    name: user.name,
+                    email: user.email,
+                    phoneNumber: user.phoneNumber,
+                    role: "user",
+                  }
+              }, "successfully logged in"));
 });
 
-const refreshAccessToken = asyncHandler(async(req:Request,res:Response) => {
+const refreshAccessToken = asyncHandler(async (req: Request, res: Response) => {
   const incomingRefreshToken = req.cookies?.refreshToken;
-  if(!incomingRefreshToken) throw new ApiError(401,"unauthorized request.");
+  if (!incomingRefreshToken) throw new ApiError(401, "unauthorized request.");
 
-  const decoded = jwt.verify(incomingRefreshToken,refreshSecret) as JwtPayload;
+  const decoded = jwt.verify(incomingRefreshToken, refreshSecret) as JwtPayload;
   const user = await User.findById(decoded._id);
-  if(!user) throw new ApiError(401,"invalid refresh token.");
-  if(user.refreshToken !== incomingRefreshToken) throw new ApiError(401,"refresh Token is expired or used.");
+  if (!user) throw new ApiError(401, "invalid refresh token.");
+  if (user.refreshToken !== incomingRefreshToken)
+    throw new ApiError(401, "refresh token is expired or used.");
 
-  const newAccessToken = generateToken({_id:user._id,role:"user"},accessSecret,accessExpriy);
-  if(!newAccessToken) throw new ApiError(400,"failed to generate new access token.");
-return res.status(200)
-  .cookie("accessToken", newAccessToken, option)
-  .json(new ApiResponse(200, {
-    accessToken: newAccessToken,
-    user: {                   // ← add this
-      _id: user._id,
-      name: user.name,
-      email: user.email,
-      phoneNumber: user.phoneNumber,
-      role: "user",
-    }
-  }, "access token refreshed."));
+  const newAccessToken = generateToken(
+    { _id: user._id, role: "user" },
+    accessSecret,
+    accessExpriy
+  );
+  const newRefreshToken = generateToken(
+    { _id: user._id, role: "user" },
+    refreshSecret,
+    refreshExpriy
+  );
+
+  user.refreshToken = newRefreshToken;
+  await user.save({ validateBeforeSave: false });
+
+  return res
+    .status(200)
+    .cookie("accessToken", newAccessToken, accessTokenOption)
+    .cookie("refreshToken", newRefreshToken, refreshTokenOption) 
+    .json(new ApiResponse(200, {
+      accessToken: newAccessToken,
+      user: {
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        phoneNumber: user.phoneNumber,
+        role: "user",
+      }
+    }, "access token refreshed."));
 });
 
 const logoutUser = asyncHandler(async(req:Request,res:Response) => {
@@ -369,8 +372,8 @@ const logoutUser = asyncHandler(async(req:Request,res:Response) => {
   await user.save({validateBeforeSave:false})
   return res
   .status(200)
-  .clearCookie("refreshToken",option)
-  .clearCookie("accessToken",option)
+  .clearCookie("refreshToken",refreshTokenOption)
+  .clearCookie("accessToken",accessTokenOption)
   .json(
     new ApiResponse(
       200,
