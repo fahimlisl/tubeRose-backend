@@ -234,7 +234,7 @@ return res
   .json(new ApiResponse(200, {
     accessToken,
     refreshToken,
-    user: {           // ← send shape consistent with loginUser
+    user: {          
       _id:         u._id,
       name:        u.name,
       email:       u.email,
@@ -263,9 +263,10 @@ const applyReferralCode = asyncHandler(async (req: Request, res: Response) => {
 
   const codeOwner = await User.findOne({ ownReferralCode: referralCode });
   if (!codeOwner) throw new ApiError(400, "Invalid referral code!");
+  const referral = await WalletSettings.findById("69f1e8cf1d399ef89fc7354e")
 
   codeOwner.wallet.push({
-    amount: 200,
+    amount: referral?.referralBonusAmount ?? 0,
     source: "referral",
     type:"credit",
     description:"referral bonus",
@@ -275,7 +276,7 @@ const applyReferralCode = asyncHandler(async (req: Request, res: Response) => {
 
   registeringUser.usedReferralCode = referralCode;
   registeringUser.wallet.push({
-    amount: 200, 
+    amount: referral?.referralBonusAmount ?? 0, 
     source: "referral",
     type:"credit",
     description:"referral bonus",
