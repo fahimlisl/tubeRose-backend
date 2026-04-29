@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { addAddress, getProfile, loginUser, logoutUser, refreshAccessToken } from "../controllers/user.controller.ts";
+import { addAddress, getProfile, getWalletSettings, loginUser, logoutUser, refreshAccessToken } from "../controllers/user.controller.ts";
 import { verifyJWT } from "../middlewares/auth.middleware.ts";
 import { addToCart, clearCart, getCart, mergeCart, removeFromCart, updateCartQuantity } from "../controllers/cart.controller.ts";
 import { trackOrderByAwb, trackShipmentByAwb } from "../utils/shiprocket.ts";
@@ -29,5 +29,7 @@ router.route("/order/track/:awb").get(verifyJWT,trackOrderByAwb)
 
 // user route
 router.route("/coupon/apply").post(verifyJWT, applyCoupon)
+
+router.route("/wallet-settings").get(verifyJWT,getWalletSettings)
 
 export default router;

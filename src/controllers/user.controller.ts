@@ -8,6 +8,7 @@ import { asyncHandler } from "../utils/AsyncHandler.ts";
 import { comparePassword, generateToken } from "../utils/auth.util.ts";
 import { accessTokenOption, refreshTokenOption } from "../utils/option.ts";
 import { JwtPayload, OTPTokenPayload, PhoneNumberTokenPayload } from "../interfaces/global.interface.ts";
+import { WalletSettings } from "../models/wallet.settings.model.ts";
 
 const sendOtpSecret = process.env.SEND_OTP_TOKEN_SECRET as string;
 const sendOtpExpiry = process.env.SEND_OTP_TOKEN_EXPIRY as string;
@@ -97,6 +98,7 @@ const sendOTP = asyncHandler(async (req: Request, res: Response) => {
       },
       body: JSON.stringify({
         phoneNumber,
+        type:"new_user",
         otp,
       }),
     });
@@ -409,6 +411,16 @@ const addAddress = asyncHandler(async (req, res) => {
 });
 
 
+export const getWalletSettings = asyncHandler(async (req, res) => {
+  const settings = await WalletSettings.findOne() ?? await WalletSettings.create({});
+  return res.status(200).json(new ApiResponse(200, {
+    walletSpendingEnabled:     settings.walletSpendingEnabled,
+    walletSpendingMaxPercent:  settings.walletSpendingMaxPercent,
+    walletSpendingMaxFixedCap: settings.walletSpendingMaxFixedCap,
+    walletCashbackEnabled:     settings.walletCashbackEnabled,
+    walletCashbackPercent:     settings.walletCashbackPercent,
+  }, "wallet settings fetched."));
+});
 
 
 export { checkPhoneNumber , sendOTP , verifyOTP , registerUser, loginUser , refreshAccessToken , logoutUser , applyReferralCode , getProfile , addAddress}

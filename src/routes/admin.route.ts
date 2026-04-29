@@ -6,6 +6,7 @@ import { upload } from "../middlewares/multer.middleware.ts";
 import { isAdmin } from "../middlewares/isAdmin.middleware.ts";
 import { createBanner, deleteBanner, getAllBanners, toggleBanner, updateBanner } from "../controllers/banner.controller.ts";
 import { addCoupon, applyCoupon, deleteCoupon, editCoupon, getAllCoupons, getCouponById, toggleCoupon } from "../controllers/coupon.controller.ts";
+import { getSettings, updateSettings } from "../controllers/wallet.settings.controller.ts";
 
 
 const router = Router();
@@ -38,5 +39,9 @@ router.route("/coupon/:id").get(verifyJWT, isAdmin, getCouponById)
 router.route("/coupon/edit/:id").patch(verifyJWT, isAdmin, editCoupon)
 router.route("/coupon/toggle/:id").patch(verifyJWT, isAdmin, toggleCoupon)
 router.route("/coupon/delete/:id").delete(verifyJWT, isAdmin, deleteCoupon)
+
+// wallet settings
+router.get("/settings",    getSettings);
+router.put("/settings",    updateSettings);
 
 export default router;

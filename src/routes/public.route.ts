@@ -4,6 +4,12 @@ import { verifyJWT } from "../middlewares/auth.middleware";
 import { fetchAllProducts, fetchParticularProduct } from "../controllers/product.controller";
 import { checkPincodeServiceability } from "../controllers/shipping.controller";
 import { getActiveBanners } from "../controllers/banner.controller";
+import { User }  from "../models/user.model.ts";
+import { Admin } from "../models/admin.model.ts";
+import {
+  generateResetPasswordToken,
+  validateOTPandResetPassword,
+} from "../services/forget.password.service.ts";
 
 
 const router = Router();
@@ -23,4 +29,22 @@ router.get("/check/serviceability", checkPincodeServiceability);
 
 // banner
 router.route("/banner/fetch/active").get(getActiveBanners)
+
+
+// user
+router.post("/user/forgot-password/send-otp",   generateResetPasswordToken(User));
+router.post("/user/forgot-password/verify-otp",  validateOTPandResetPassword(User));
+
+// admin
+router.post("/admin/forgot-password/send-otp",  generateResetPasswordToken(Admin));
+router.post("/admin/forgot-password/verify-otp", validateOTPandResetPassword(Admin));
+
+
+
+
+
+
+
+
+
 export default router;

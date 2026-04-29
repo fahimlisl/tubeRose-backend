@@ -15,6 +15,7 @@ export interface IUser extends Document{
     updatedAt: Date;
     addresses:IAddress[];
     cart:ICart[];
+    resetPasswordToken:string;
 }
 
 export interface IWallet {

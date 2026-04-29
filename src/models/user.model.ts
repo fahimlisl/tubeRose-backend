@@ -127,6 +127,9 @@ const userSchema = new Schema<IUser>({
     cart:{
         type:[cartSchema],
         default:[]
+    },
+    resetPasswordToken:{
+        type:String
     }
 },{
     timestamps:true

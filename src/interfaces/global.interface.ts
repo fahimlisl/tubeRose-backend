@@ -3,6 +3,11 @@ export interface JwtPayload {
     _id:string;
 }
 
+export interface JWTResetPasswordPayload {
+    _id:string;
+    otp:string;
+}
+
 export interface OTPTokenPayload {
   otphash: string;
   phoneNumber: string; // req.body recives it as string

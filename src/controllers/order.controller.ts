@@ -10,111 +10,18 @@ import crypto from "crypto";
 import { createShiprocketOrder, assignAWB, requestPickup, checkServiceability } from "../utils/shiprocket.ts";
 import { CouponUsage } from "../models/couponUsage.model.ts";
 import { Coupon } from "../models/coupon.model.ts";
+import { WalletSettings } from "../models/wallet.settings.model.ts";
+ 
+const getSettings = async () => {
+  let s = await WalletSettings.findOne();
+  if (!s) s = await WalletSettings.create({});
+  return s;
+};
 
 const razorpay = new Razorpay({
   key_id:     process.env.RAZORPAY_KEY_ID!,
   key_secret: process.env.RAZORPAY_KEY_SECRET!,
 });
-
-const createOrder = asyncHandler(async (req: Request, res: Response) => {
-  const { shippingAddress, discount, cartCategories } = req.body;
- 
-  if (!shippingAddress)              throw new ApiError(400, "shipping address is required!");
-  if (!shippingAddress.fullName)     throw new ApiError(400, "fullName is required!");
-  if (!shippingAddress.phone)        throw new ApiError(400, "phone is required!");
-  if (!shippingAddress.addressLine1) throw new ApiError(400, "addressLine1 is required!");
-  if (!shippingAddress.city)         throw new ApiError(400, "city is required!");
-  if (!shippingAddress.state)        throw new ApiError(400, "state is required!");
-  if (!shippingAddress.pincode)      throw new ApiError(400, "pincode is required!");
- 
-  const user = await User.findById(req.user._id).populate({
-    path:   "cart.product",
-    model:  "Product",
-    select: "title image sizes",
-  });
- 
-  if (!user)                                throw new ApiError(404, "user not found!");
-  if (!user.cart || user.cart.length === 0) throw new ApiError(400, "cart is empty!");
- 
-  const orderItems: {
-    product:   string;
-    name:      string;
-    sizeLabel: string;
-    price:     number;
-    quantity:  number;
-    image:     string;
-  }[] = [];
- 
-  let baseAmount = 0;
- 
-  for (const cartItem of user.cart) {
-    const product = cartItem.product as any;
-    if (!product?._id) throw new ApiError(400, "invalid product in cart!");
- 
-    const sizeVariant = product.sizes?.find((s: any) => s.label === cartItem.sizeLabel);
- 
-    if (!sizeVariant) {
-      throw new ApiError(400, `size "${cartItem.sizeLabel}" not found for "${product.title}"`);
-    }
-    if (sizeVariant.stock < cartItem.quantity) {
-      throw new ApiError(400, `only ${sizeVariant.stock} unit(s) of "${product.title}" (${cartItem.sizeLabel}) available`);
-    }
- 
-    const thumbnail =
-      product.image?.find((img: any) => img.isThumbnail)?.url ??
-      product.image?.[0]?.url ?? "";
- 
-    orderItems.push({
-      product:   product._id.toString(),
-      name:      product.title,
-      sizeLabel: cartItem.sizeLabel,
-      price:     sizeVariant.finalPrice,
-      quantity:  cartItem.quantity,
-      image:     thumbnail,
-    });
- 
-    baseAmount += sizeVariant.finalPrice * cartItem.quantity;
-  }
- 
-  const shippingCost = baseAmount >= 499 ? 0 : 99;
-  let   totalAmount  = baseAmount + shippingCost;
- 
-  if (discount?.code) {
-    const coupon = await validateCoupon(
-      discount.code,
-      baseAmount,
-      cartCategories ?? [],
-      req.user._id.toString()
-    );
-    const discountAmount = calculateDiscount(coupon, baseAmount);
-    totalAmount = totalAmount - discountAmount;
-  }
- 
-  try {
-    const razorpayOrder = await razorpay.orders.create({
-      amount:   totalAmount * 100,  
-      currency: "INR",
-      receipt:  `rcpt_${req.user._id.toString().slice(-6)}_${Date.now().toString().slice(-6)}`,
-    });
- 
-    return res.status(200).json(
-      new ApiResponse(200, {
-        razorpayOrderId: razorpayOrder.id,
-        amount:          totalAmount, 
-        baseAmount,
-        shippingCost,
-        currency:        "INR",
-        orderItems,
-        shippingAddress,
-      }, "razorpay order created!")
-    );
-  } catch (err: any) {
-    console.error("Razorpay error:", err);
-    throw new ApiError(500, err?.error?.description ?? "Failed to create Razorpay order");
-  }
-});
-
-
 
 const getOrder = asyncHandler(async (req: Request, res: Response) => {
   const { orderId } = req.params;
@@ -259,38 +166,130 @@ export const applyCoupon = asyncHandler(async (req: Request, res: Response) => {
   );
 });
 
+const createOrder = asyncHandler(async (req: Request, res: Response) => {
+  const { shippingAddress, discount, cartCategories, walletUsage } = req.body;
+ 
+  if (!shippingAddress)              throw new ApiError(400, "shipping address is required!");
+  if (!shippingAddress.fullName)     throw new ApiError(400, "fullName is required!");
+  if (!shippingAddress.phone)        throw new ApiError(400, "phone is required!");
+  if (!shippingAddress.addressLine1) throw new ApiError(400, "addressLine1 is required!");
+  if (!shippingAddress.city)         throw new ApiError(400, "city is required!");
+  if (!shippingAddress.state)        throw new ApiError(400, "state is required!");
+  if (!shippingAddress.pincode)      throw new ApiError(400, "pincode is required!");
+ 
+  const user = await User.findById(req.user._id).populate({
+    path:   "cart.product",
+    model:  "Product",
+    select: "title image sizes",
+  });
+ 
+  if (!user)                                throw new ApiError(404, "user not found!");
+  if (!user.cart || user.cart.length === 0) throw new ApiError(400, "cart is empty!");
+ 
+  const orderItems: {
+    product: string; name: string; sizeLabel: string;
+    price: number; quantity: number; image: string;
+  }[] = [];
+ 
+  let baseAmount = 0;
+ 
+  for (const cartItem of user.cart) {
+    const product = cartItem.product as any;
+    if (!product?._id) throw new ApiError(400, "invalid product in cart!");
+ 
+    const sizeVariant = product.sizes?.find((s: any) => s.label === cartItem.sizeLabel);
+    if (!sizeVariant) throw new ApiError(400, `size "${cartItem.sizeLabel}" not found for "${product.title}"`);
+    if (sizeVariant.stock < cartItem.quantity)
+      throw new ApiError(400, `only ${sizeVariant.stock} unit(s) of "${product.title}" (${cartItem.sizeLabel}) available`);
+ 
+    const thumbnail =
+      product.image?.find((img: any) => img.isThumbnail)?.url ??
+      product.image?.[0]?.url ?? "";
+ 
+    orderItems.push({
+      product:   product._id.toString(),
+      name:      product.title,
+      sizeLabel: cartItem.sizeLabel,
+      price:     sizeVariant.finalPrice,
+      quantity:  cartItem.quantity,
+      image:     thumbnail,
+    });
+ 
+    baseAmount += sizeVariant.finalPrice * cartItem.quantity;
+  }
+ 
+  const shippingCost = baseAmount >= 499 ? 0 : 99;
+  let   totalAmount  = baseAmount + shippingCost;
+  if (discount?.code) {
+    const coupon         = await validateCoupon(discount.code, baseAmount, cartCategories ?? [], req.user._id.toString());
+    const discountAmount = calculateDiscount(coupon, baseAmount);
+    totalAmount          = totalAmount - discountAmount;
+  }
+
+  let walletDeduction = 0;
+  if (walletUsage) {
+    const settings = await getSettings();
+    if (settings.walletSpendingEnabled) {
+      const credits = (user.wallet as any[]).filter(w => w.type === "credit").reduce((s, w) => s + w.amount, 0);
+      const debits  = (user.wallet as any[]).filter(w => w.type === "debit").reduce((s, w)  => s + w.amount, 0);
+      const balance = credits - debits;
+ 
+      const maxByPercent = Math.floor((totalAmount * settings.walletSpendingMaxPercent) / 100);
+      const maxAllowed   = Math.min(maxByPercent, settings.walletSpendingMaxFixedCap);
+      walletDeduction    = Math.min(balance, maxAllowed, totalAmount);
+      totalAmount        = totalAmount - walletDeduction;
+    }
+  }
+ 
+  try {
+    const razorpayOrder = await razorpay.orders.create({
+      amount:   totalAmount * 100,
+      currency: "INR",
+      receipt:  `rcpt_${req.user._id.toString().slice(-6)}_${Date.now().toString().slice(-6)}`,
+    });
+ 
+    return res.status(200).json(
+      new ApiResponse(200, {
+        razorpayOrderId: razorpayOrder.id,
+        amount:          totalAmount,
+        baseAmount,
+        shippingCost,
+        walletDeduction,
+        currency:        "INR",
+        orderItems,
+        shippingAddress,
+      }, "razorpay order created!")
+    );
+  } catch (err: any) {
+    console.error("Razorpay error:", err);
+    throw new ApiError(500, err?.error?.description ?? "Failed to create Razorpay order");
+  }
+});
+ 
 const verifyAndSaveOrder = asyncHandler(async (req: Request, res: Response) => {
   const {
-    razorpayOrderId,
-    razorpayPaymentId,
-    razorpaySignature,
-    shippingAddress,
-    orderItems,
-    baseAmount,
-    shippingCost,
-    totalAmount,
-    cartCategories,
-    discount, 
+    razorpayOrderId, razorpayPaymentId, razorpaySignature,
+    shippingAddress, orderItems, baseAmount, shippingCost,
+    totalAmount, cartCategories, discount,
+    walletDeduction = 0,
   } = req.body;
-
+ 
   if (!razorpayOrderId)    throw new ApiError(400, "razorpayOrderId is required!");
   if (!razorpayPaymentId)  throw new ApiError(400, "razorpayPaymentId is required!");
   if (!razorpaySignature)  throw new ApiError(400, "razorpaySignature is required!");
   if (!shippingAddress)    throw new ApiError(400, "shippingAddress is required!");
   if (!orderItems?.length) throw new ApiError(400, "orderItems are required!");
-
   const expectedSignature = crypto
     .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET!)
     .update(`${razorpayOrderId}|${razorpayPaymentId}`)
     .digest("hex");
-
   if (expectedSignature !== razorpaySignature)
     throw new ApiError(400, "payment verification failed — invalid signature!");
-
+ 
   const { pincode } = shippingAddress;
   if (!pincode || !/^\d{6}$/.test(pincode))
     throw new ApiError(400, "valid 6-digit pincode is required in shipping address!");
-
+ 
   try {
     const serviceabilityData = await checkServiceability(pincode);
     const couriers: any[] = serviceabilityData?.data?.available_courier_companies ?? [];
@@ -300,21 +299,14 @@ const verifyAndSaveOrder = asyncHandler(async (req: Request, res: Response) => {
     if (err instanceof ApiError) throw err;
     console.error("Serviceability check failed (non-blocking):", err.message);
   }
-  let verifiedDiscount: { code: string; amount: number } | undefined;
 
+  let verifiedDiscount: { code: string; amount: number } | undefined;
   if (discount?.code) {
-    const coupon = await validateCoupon(
-      discount.code,
-      baseAmount,
-      cartCategories ?? [],
-      req.user._id.toString()
-    );
+    const coupon     = await validateCoupon(discount.code, baseAmount, cartCategories ?? [], req.user._id.toString());
     const recalculated = calculateDiscount(coupon, baseAmount);
-    verifiedDiscount = {
-      code:   coupon.code,
-      amount:recalculated
-    };
+    verifiedDiscount = { code: coupon.code, amount: recalculated };
   }
+
   const order = await Order.create({
     user:             req.user._id,
     items:            orderItems,
@@ -327,33 +319,61 @@ const verifyAndSaveOrder = asyncHandler(async (req: Request, res: Response) => {
     baseAmount,
     totalAmount,
     shiprocketStatus: "pending",
-    ...(verifiedDiscount ? { discount: verifiedDiscount } : {}),
+    ...(verifiedDiscount   ? { discount:        verifiedDiscount }   : {}),
+    ...(walletDeduction > 0 ? { walletDeduction }                    : {}),
   });
+
   for (const item of orderItems) {
     await Product.updateOne(
       { _id: item.product, "sizes.label": item.sizeLabel },
       { $inc: { "sizes.$.stock": -item.quantity } }
     );
   }
+
   await User.findByIdAndUpdate(req.user._id, { $set: { cart: [] } });
+
   if (verifiedDiscount) {
-    const coupon = await Coupon.findOne({
-      code: verifiedDiscount.code.toUpperCase().trim(),
-    });
+    const coupon = await Coupon.findOne({ code: verifiedDiscount.code.toUpperCase().trim() });
     if (coupon) {
-      await CouponUsage.create({
-        coupon: coupon._id,
-        user:   req.user._id,
-        order:  order._id,
-      });
-      await Coupon.findByIdAndUpdate(coupon._id, {
-        $inc: { usedCount: 1 },
+      await CouponUsage.create({ coupon: coupon._id, user: req.user._id, order: order._id });
+      await Coupon.findByIdAndUpdate(coupon._id, { $inc: { usedCount: 1 } });
+    }
+  }
+
+  if (walletDeduction > 0) {
+    await User.findByIdAndUpdate(req.user._id, {
+      $push: {
+        wallet: {
+          amount:      walletDeduction,
+          type:        "debit",
+          source:      "order",
+          source_id:   order._id,
+          description: `wallet redeemed on order`,
+        },
+      },
+    });
+  }
+
+  const settings = await getSettings();
+  if (settings.walletCashbackEnabled && settings.walletCashbackPercent > 0) {
+    const cashback = Math.floor((baseAmount * settings.walletCashbackPercent) / 100);
+    if (cashback > 0) {
+      await User.findByIdAndUpdate(req.user._id, {
+        $push: {
+          wallet: {
+            amount:      cashback,
+            type:        "credit",
+            source:      "cashback",
+            source_id:   order._id,
+            description: `${settings.walletCashbackPercent}% cashback on order`,
+          },
+        },
       });
     }
   }
-  res.status(201).json(
-    new ApiResponse(201, { orderId: order._id }, "order placed successfully!")
-  );
+
+  res.status(201).json(new ApiResponse(201, { orderId: order._id }, "order placed successfully!"));
+ 
   createShiprocketOrder({
     orderId:   order._id.toString(),
     orderDate: order.createdAt.toISOString(),
@@ -378,16 +398,10 @@ const verifyAndSaveOrder = asyncHandler(async (req: Request, res: Response) => {
       });
     })
     .catch(async (err) => {
-      await Order.findByIdAndUpdate(order._id, {
-        shiprocketStatus: "failed",
-      });
-      console.error(
-        `❌ Shiprocket automation failed for orderId ${order._id}:`,
-        err.message
-      );
+      await Order.findByIdAndUpdate(order._id, { shiprocketStatus: "failed" });
+      console.error(`❌ Shiprocket failed for orderId ${order._id}:`, err.message);
     });
 });
-
 
 export {
   createOrder,
