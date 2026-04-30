@@ -10,6 +10,8 @@ import {
   generateResetPasswordToken,
   validateOTPandResetPassword,
 } from "../services/forget.password.service.ts";
+import { getPublicShippingInfo } from "../controllers/shipping.settings.controller.ts";
+
 
 
 const router = Router();
@@ -38,8 +40,8 @@ router.post("/user/forgot-password/verify-otp",  validateOTPandResetPassword(Use
 // admin
 router.post("/admin/forgot-password/send-otp",  generateResetPasswordToken(Admin));
 router.post("/admin/forgot-password/verify-otp", validateOTPandResetPassword(Admin));
-
-
+ 
+router.route("/shipping/info").get(getPublicShippingInfo);
 
 
 

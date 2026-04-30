@@ -11,6 +11,7 @@ import { createShiprocketOrder, assignAWB, requestPickup, checkServiceability } 
 import { CouponUsage } from "../models/couponUsage.model.ts";
 import { Coupon } from "../models/coupon.model.ts";
 import { WalletSettings } from "../models/wallet.settings.model.ts";
+import { getShippingConfig, calculateShippingCost } from "../utils/shippingConfig.ts";
  
 const getSettings = async () => {
   let s = await WalletSettings.findOne();
@@ -218,7 +219,8 @@ const createOrder = asyncHandler(async (req: Request, res: Response) => {
     baseAmount += sizeVariant.finalPrice * cartItem.quantity;
   }
  
-  const shippingCost = baseAmount >= 499 ? 0 : 99;
+  const shippingConfig  = await getShippingConfig();
+  const shippingCost    = calculateShippingCost(shippingConfig, baseAmount);
   let   totalAmount  = baseAmount + shippingCost;
   if (discount?.code) {
     const coupon         = await validateCoupon(discount.code, baseAmount, cartCategories ?? [], req.user._id.toString());

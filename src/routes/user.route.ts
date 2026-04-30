@@ -4,6 +4,8 @@ import { verifyJWT } from "../middlewares/auth.middleware.ts";
 import { addToCart, clearCart, getCart, mergeCart, removeFromCart, updateCartQuantity } from "../controllers/cart.controller.ts";
 import { trackOrderByAwb, trackShipmentByAwb } from "../utils/shiprocket.ts";
 import { applyCoupon } from "../controllers/coupon.controller.ts";
+import { resetPassword } from "../services/change.password.service.ts";
+import { User } from "../models/user.model.ts";
 
 const router = Router();
 
@@ -31,5 +33,7 @@ router.route("/order/track/:awb").get(verifyJWT,trackOrderByAwb)
 router.route("/coupon/apply").post(verifyJWT, applyCoupon)
 
 router.route("/wallet-settings").get(verifyJWT,getWalletSettings)
+
+router.route("/change/password").post(verifyJWT, resetPassword(User))
 
 export default router;

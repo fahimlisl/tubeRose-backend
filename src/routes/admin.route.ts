@@ -6,7 +6,13 @@ import { upload } from "../middlewares/multer.middleware.ts";
 import { isAdmin } from "../middlewares/isAdmin.middleware.ts";
 import { createBanner, deleteBanner, getAllBanners, toggleBanner, updateBanner } from "../controllers/banner.controller.ts";
 import { addCoupon, applyCoupon, deleteCoupon, editCoupon, getAllCoupons, getCouponById, toggleCoupon } from "../controllers/coupon.controller.ts";
+import {
+  getShippingSettings,
+  updateShippingSettings,
+} from "../controllers/shipping.settings.controller.ts";
 import { getSettings, updateSettings } from "../controllers/wallet.settings.controller.ts";
+import { resetPassword } from "../services/change.password.service.ts";
+import { Admin } from "../models/admin.model.ts";
 
 
 const router = Router();
@@ -43,5 +49,13 @@ router.route("/coupon/delete/:id").delete(verifyJWT, isAdmin, deleteCoupon)
 // wallet settings
 router.get("/settings",    getSettings);
 router.put("/settings",    updateSettings);
+
+ 
+  router
+    .route("/shipping/settings")
+    .get(verifyJWT, isAdmin, getShippingSettings)
+    .patch(verifyJWT, isAdmin, updateShippingSettings)
+
+router.route("/change/password").post(verifyJWT,isAdmin,resetPassword(Admin))
 
 export default router;
