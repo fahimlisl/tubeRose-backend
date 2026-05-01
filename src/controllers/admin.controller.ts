@@ -48,7 +48,6 @@ const registerAdmin = asyncHandler(async(req:Request,res:Response) => {
 });
 
 const adminLogin = asyncHandler(async(req:Request,res:Response) => {
-    console.log(accessExpriy,accessSecret,refreshExpriy,refreshSecret)
     const { email,phoneNumber,password } = req.body;
 
     if(!(email || phoneNumber) ) {
