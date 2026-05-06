@@ -29,10 +29,12 @@ import adminRouter from "./routes/admin.route.ts";
 import publicRouter from "./routes/public.route.ts";
 import userRouter from "./routes/user.route.ts";
 import orderRouter from "./routes/order.route.ts";
+import webhookShipRocketRouter from "./routes/webhook.route.ts"
 app.use("/api/v1/admin", adminRouter);
 app.use("/api/v1/public", publicRouter);
 app.use("/api/v1/user", userRouter);
 app.use("/api/v1/order", orderRouter);
+app.use("/api/v1/webhook", webhookShipRocketRouter);
 
 // Error handling middleware
 app.use(
