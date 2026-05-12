@@ -46,6 +46,10 @@ const orderSchema = new Schema<IOrder>({
     type: String,
     default: null 
   },
+  razorpayRefundId: {
+    type: String,
+    default: null 
+  },
 }, { timestamps: true });
 
 

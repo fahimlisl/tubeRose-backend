@@ -34,6 +34,7 @@ export interface IOrder extends Document {
     shiprocketShipmentId:string;    
     shiprocketStatus:string;
     awbCode:string;
+    razorpayRefundId:string | null;
     createdAt: Date;
     updatedAt: Date;
 }
