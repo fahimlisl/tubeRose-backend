@@ -11,6 +11,7 @@ import {
   validateOTPandResetPassword,
 } from "../services/forget.password.service.ts";
 import { getPublicShippingInfo } from "../controllers/shipping.settings.controller.ts";
+import { fetchAllReviewsForAProduct } from "../controllers/review.controller.ts";
 
 
 
@@ -25,6 +26,8 @@ router.route("/apply/coupon/referral").post(verifyJWT,applyReferralCode)
 // product
 router.route("/fetch/product/all").get(fetchAllProducts)
 router.route("/fetch/product/:id").get(fetchParticularProduct)
+router.route("/fetch/review/all").get(fetchAllReviewsForAProduct)
+// productId
 
 // shipping
 router.get("/check/serviceability", checkPincodeServiceability);

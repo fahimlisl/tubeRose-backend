@@ -6,6 +6,9 @@ import { trackOrderByAwb, trackShipmentByAwb } from "../utils/shiprocket.ts";
 import { applyCoupon } from "../controllers/coupon.controller.ts";
 import { resetPassword } from "../services/change.password.service.ts";
 import { User } from "../models/user.model.ts";
+import { getDefaultResultOrder } from "node:dns";
+import { addReview } from "../controllers/review.controller.ts";
+import { upload } from "../middlewares/multer.middleware.ts";
 
 const router = Router();
 
@@ -35,5 +38,9 @@ router.route("/coupon/apply").post(verifyJWT, applyCoupon)
 router.route("/wallet-settings").get(verifyJWT,getWalletSettings)
 
 router.route("/change/password").post(verifyJWT, resetPassword(User))
+
+router.route("/review/add/:productId").post(verifyJWT,upload.array("images",3),addReview)
+
+
 
 export default router;
