@@ -310,6 +310,215 @@ const createOrder = asyncHandler(async (req: Request, res: Response) => {
   }
 });
 
+const createCodOrder = asyncHandler(async (req: Request, res: Response) => {
+  const { shippingAddress, discount, cartCategories, walletUsage } = req.body;
+
+  if (!shippingAddress) throw new ApiError(400, "shipping address is required!");
+  if (!shippingAddress.fullName) throw new ApiError(400, "fullName is required!");
+  if (!shippingAddress.phone) throw new ApiError(400, "phone is required!");
+  if (!shippingAddress.addressLine1) throw new ApiError(400, "addressLine1 is required!");
+  if (!shippingAddress.city) throw new ApiError(400, "city is required!");
+  if (!shippingAddress.state) throw new ApiError(400, "state is required!");
+  if (!shippingAddress.pincode) throw new ApiError(400, "pincode is required!");
+
+  const { pincode } = shippingAddress;
+  const serviceabilityData = await checkServiceability(pincode);
+  const couriers: any[] = serviceabilityData?.data?.available_courier_companies ?? [];
+  if (couriers.length === 0)
+    throw new ApiError(400, `delivery is not available at pincode ${pincode}.`);
+
+  const codAvailable = couriers.some((c) => c.cod === 1);
+  if (!codAvailable)
+    throw new ApiError(400, "Cash on Delivery is not available at your pincode.");
+
+  const user = await User.findById(req.user._id).populate({
+    path: "cart.product",
+    model: "Product",
+    select: "title image sizes",
+  });
+
+  if (!user) throw new ApiError(404, "user not found!");
+  if (!user.cart || user.cart.length === 0) throw new ApiError(400, "cart is empty!");
+
+  const orderItems: {
+    product: string;
+    name: string;
+    sizeLabel: string;
+    price: number;
+    quantity: number;
+    image: string;
+  }[] = [];
+
+  let baseAmount = 0;
+
+  for (const cartItem of user.cart) {
+    const product = cartItem.product as any;
+    if (!product?._id) throw new ApiError(400, "invalid product in cart!");
+
+    const sizeVariant = product.sizes?.find((s: any) => s.label === cartItem.sizeLabel);
+    if (!sizeVariant)
+      throw new ApiError(400, `size "${cartItem.sizeLabel}" not found for "${product.title}"`);
+    if (sizeVariant.stock < cartItem.quantity)
+      throw new ApiError(
+        400,
+        `only ${sizeVariant.stock} unit(s) of "${product.title}" (${cartItem.sizeLabel}) available`
+      );
+
+    const thumbnail =
+      product.image?.find((img: any) => img.isThumbnail)?.url ??
+      product.image?.[0]?.url ??
+      "";
+
+    orderItems.push({
+      product: product._id.toString(),
+      name: product.title,
+      sizeLabel: cartItem.sizeLabel,
+      price: sizeVariant.finalPrice,
+      quantity: cartItem.quantity,
+      image: thumbnail,
+    });
+
+    baseAmount += sizeVariant.finalPrice * cartItem.quantity;
+  }
+
+  const shippingConfig = await getShippingConfig();
+  const shippingCost = calculateShippingCost(shippingConfig, baseAmount);
+  let totalAmount = baseAmount + shippingCost;
+
+  let verifiedDiscount: { code: string; amount: number } | undefined;
+  if (discount?.code) {
+    const coupon = await validateCoupon(
+      discount.code,
+      baseAmount,
+      cartCategories ?? [],
+      req.user._id.toString()
+    );
+    const discountAmount = calculateDiscount(coupon, baseAmount);
+    verifiedDiscount = { code: coupon.code, amount: discountAmount };
+    totalAmount = totalAmount - discountAmount;
+  }
+
+  let walletDeduction = 0;
+  if (walletUsage) {
+    const settings = await getSettings();
+    if (settings.walletSpendingEnabled) {
+      const credits = (user.wallet as any[])
+        .filter((w) => w.type === "credit")
+        .reduce((s, w) => s + w.amount, 0);
+      const debits = (user.wallet as any[])
+        .filter((w) => w.type === "debit")
+        .reduce((s, w) => s + w.amount, 0);
+      const balance = credits - debits;
+
+      const maxByPercent = Math.floor(
+        (totalAmount * settings.walletSpendingMaxPercent) / 100
+      );
+      const maxAllowed = Math.min(maxByPercent, settings.walletSpendingMaxFixedCap);
+      walletDeduction = Math.min(balance, maxAllowed, totalAmount);
+      totalAmount = totalAmount - walletDeduction;
+    }
+  }
+
+  const order = await Order.create({
+    user: req.user._id,
+    items: orderItems,
+    shippingAddress,
+    paymentMethod: "cod",
+    paymentStatus: "pending",
+    orderStatus: "placed",
+    baseAmount,
+    totalAmount,
+    shiprocketStatus: "pending",
+    ...(verifiedDiscount ? { discount: verifiedDiscount } : {}),
+    ...(walletDeduction > 0 ? { walletDeduction } : {}),
+  });
+
+  for (const item of orderItems) {
+    await Product.updateOne(
+      { _id: item.product, "sizes.label": item.sizeLabel },
+      { $inc: { "sizes.$.stock": -item.quantity } }
+    );
+  }
+
+  await User.findByIdAndUpdate(req.user._id, { $set: { cart: [] } });
+  if (verifiedDiscount) {
+    const coupon = await Coupon.findOne({
+      code: verifiedDiscount.code.toUpperCase().trim(),
+    });
+    if (coupon) {
+      await CouponUsage.create({ coupon: coupon._id, user: req.user._id, order: order._id });
+      await Coupon.findByIdAndUpdate(coupon._id, { $inc: { usedCount: 1 } });
+    }
+  }
+
+  if (walletDeduction > 0) {
+    await User.findByIdAndUpdate(req.user._id, {
+      $push: {
+        wallet: {
+          amount: walletDeduction,
+          type: "debit",
+          source: "order",
+          source_id: order._id,
+          description: `wallet redeemed on COD order`,
+        },
+      },
+    });
+  }
+
+  const settings = await getSettings();
+  if (settings.walletCashbackEnabled && settings.walletCashbackPercent > 0) {
+    const cashback = Math.floor((baseAmount * settings.walletCashbackPercent) / 100);
+    if (cashback > 0) {
+      await User.findByIdAndUpdate(req.user._id, {
+        $push: {
+          wallet: {
+            amount: cashback,
+            type: "credit",
+            source: "cashback",
+            source_id: order._id,
+            description: `${settings.walletCashbackPercent}% cashback on COD order`,
+          },
+        },
+      });
+    }
+  }
+  res.status(201).json(
+    new ApiResponse(201, { orderId: order._id }, "COD order placed successfully!")
+  );
+
+  const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+
+  createShiprocketOrder({
+    orderId: order._id.toString(),
+    orderDate: order.createdAt.toISOString(),
+    shippingAddress,
+    items: orderItems.map((item) => ({
+      name: item.name,
+      sizeLabel: item.sizeLabel,
+      price: item.price,
+      quantity: item.quantity,
+    })),
+    totalAmount,
+    baseAmount,
+  })
+    .then(async (shipmentId) => {
+       await sleep(5000);
+      const awbCode = await assignAWB(shipmentId);
+      await requestPickup(shipmentId);
+      await Order.findByIdAndUpdate(order._id, {
+        shiprocketShipmentId: shipmentId,
+        shiprocketStatus: "pickup_requested",
+        awbCode,
+        orderStatus: "processing",
+      });
+    })
+    .catch(async (err) => {
+      await Order.findByIdAndUpdate(order._id, { shiprocketStatus: "failed" });
+      console.error(`❌ Shiprocket failed for COD orderId ${order._id}:`, err.message);
+    });
+});
+
 const verifyAndSaveOrder = asyncHandler(async (req: Request, res: Response) => {
   const {
     razorpayOrderId,
@@ -450,6 +659,8 @@ const verifyAndSaveOrder = asyncHandler(async (req: Request, res: Response) => {
     .json(
       new ApiResponse(201, { orderId: order._id }, "order placed successfully!")
     );
+    
+  const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
   createShiprocketOrder({
     orderId: order._id.toString(),
@@ -465,6 +676,7 @@ const verifyAndSaveOrder = asyncHandler(async (req: Request, res: Response) => {
     baseAmount,
   })
     .then(async (shipmentId) => {
+      await sleep(5000);
       const awbCode = await assignAWB(shipmentId);
       await requestPickup(shipmentId);
       await Order.findByIdAndUpdate(order._id, {
@@ -728,6 +940,7 @@ export const adminCancelOrder = asyncHandler(
 
 export {
   createOrder,
+  createCodOrder,
   verifyAndSaveOrder,
   getOrder,
   getUserOrders,
