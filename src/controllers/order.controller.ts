@@ -429,6 +429,7 @@ const createCodOrder = asyncHandler(async (req: Request, res: Response) => {
     baseAmount,
     totalAmount,
     shiprocketStatus: "pending",
+    walletBalanceUsed:walletDeduction,
     ...(verifiedDiscount ? { discount: verifiedDiscount } : {}),
     ...(walletDeduction > 0 ? { walletDeduction } : {}),
   });
@@ -592,6 +593,7 @@ const verifyAndSaveOrder = asyncHandler(async (req: Request, res: Response) => {
     razorpayPaymentId,
     baseAmount,
     totalAmount,
+    walletBalanceUsed:walletDeduction,
     shiprocketStatus: "pending",
     ...(verifiedDiscount ? { discount: verifiedDiscount } : {}),
     ...(walletDeduction > 0 ? { walletDeduction } : {}),

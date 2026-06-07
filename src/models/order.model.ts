@@ -50,6 +50,10 @@ const orderSchema = new Schema<IOrder>({
     type: String,
     default: null 
   },
+  walletBalanceUsed:{
+    type:Number,
+    default:0
+  }
 }, { timestamps: true });
 
 

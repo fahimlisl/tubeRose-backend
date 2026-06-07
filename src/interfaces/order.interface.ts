@@ -31,6 +31,7 @@ export interface IOrder extends Document {
         sizeLabel:string
     }[],
     baseAmount:number;
+    walletBalanceUsed:number;
     shiprocketShipmentId:string;    
     shiprocketStatus:string;
     awbCode:string;
