@@ -1,12 +1,14 @@
 import app from "./app.ts"
 import dotenv from "dotenv"
 import { connectDB } from "./db/index.ts";
+import { ConnectRedis } from "./services/redis.service.ts";
 
 dotenv.config({
   path:"./.env"
 })
 
 connectDB()
+ConnectRedis()
 .then(() => {
   app.get("/",(req,res) => {
     res.send("bckend is running with typescirpt!");

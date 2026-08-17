@@ -3,28 +3,41 @@ import { ApiError } from "./ApiError.ts";
 import { ApiResponse } from "./ApiResponse.ts";
 import { asyncHandler } from "./AsyncHandler.ts";
 import { Request,Response } from "express";
+import client from "../services/redis.service.ts";
+import { SHIPROCKET_AUTH_KEY } from "../constants.ts";
 
 let cachedToken: string | null = null;
 let tokenExpiry: number        = 0;
 
 const getShiprocketToken = async (): Promise<string> => {
-    if (cachedToken && Date.now() < tokenExpiry) {
-        return cachedToken;
+  const cached = await client.get(SHIPROCKET_AUTH_KEY);
+//   if (cached) return cached;
+    if(cached){
+        console.log("getting from redis cache block")
+        return cached;
     }
-    const res = await fetch("https://apiv2.shiprocket.in/v1/external/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-            email:    process.env.SHIPROCKET_EMAIL,
-            password: process.env.SHIPROCKET_PASSWORD,
-        }),
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error("Failed to authenticate with Shiprocket");
-    cachedToken = data.token;
-    tokenExpiry = Date.now() + 23 * 60 * 60 * 1000;
-    return cachedToken as string;
+
+  const res = await fetch("https://apiv2.shiprocket.in/v1/external/auth/login", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      email:    process.env.SHIPROCKET_EMAIL,
+      password: process.env.SHIPROCKET_PASSWORD,
+    }),
+  });
+
+  const data = await res.json();
+  if (!res.ok) throw new Error("Failed to authenticate with Shiprocket");
+
+  const token: string = data.token;
+  await client.set(SHIPROCKET_AUTH_KEY, token, {
+    EX: 23 * 60 * 60,
+  });
+
+  return token;
 };
+
+
 
 export const checkServiceability = async (pincode: string) => {
     const token = await getShiprocketToken();
